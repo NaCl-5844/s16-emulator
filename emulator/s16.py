@@ -16,13 +16,11 @@ Operations:
 1000 bsh 000xxxx-sss-bbb-aaa sss: bsl bsr asr csl csr
 1001 lim 000xxxx-ccc-nnn-nnn
 1010 --- 000xxxx-xxx-xxx-xxx
-1011 ls  000xxxx-sss-bbb-aaa sss: ldb ldw stb stw
+1011 ls  000xxxx-sss-bbb-aaa sss: ldb ldw ldp stb stw stp
 1100 cmp 000xxxx-sss-bbb-aaa sss: csn clt cle ceq cgt cge cez
 1101 tst 000xxxx-sss-bbb-aaa sss: tio tno tan tna txo txn tim tni
-1110 jmp 000xxxx-sss-bbb-aaa sss: 
+1110 jmp 000xxxx-sss-bbb-aaa sss: jr  jd  ji  jal cjr cjd cji ret
 1111 int 000xxxx-nnn-nnn-nnn
-
-
 
 
 """
@@ -46,12 +44,18 @@ a lot of testing and debugging.
 	
 class bus:
 """
+[Aim]: to allow communication between peripheral components connected to the CPU.
+
+[Variables]: bus_address, communication_type?
 
 """
 	
 class execute:
 """
+[Aim]: stores all instructions and sub operations that are mapped to functions. The functions
+must act on/the default data type will be hexadecimal.
 
+[Objects] arithmetic_unit, control_unit, memory_buffer
 """
 	
 class packet:
