@@ -15,13 +15,13 @@ xxxx|op-|format-------------
 0110 sub 000xxxx-ccc-bbb-aaa
 0111 sbb 000xxxx-ccc-bbb-aaa
 1000 bsh 000xxxx-sss-bbb-aaa sss: bsl bsr asr csl csr
-1001 lim 000xxxx-cnn-nnn-nnn cc: r0,r4 / n..: sign extended ±127
-1010 --- 000xxxx-xxx-xxx-xxx
-1011 ls  000xxxx-sss-bbb-aaa sss: ldb ldw ldp stb stw stp / [b]yte [w]ord=2B [p]age=2B*8
-1100 cmp 000xxxx-sss-bbb-aaa sss: csn clt cle ceq cgt cge cez / return: false=0 true=1 
+1001 bd  000xxxx-ccc-sss-aaa sss: lzc tzc bc  bfm bfl bvl bvm / bd: bit data / bf[l/m]: find [l/m]sb / bv[l/m]: value [l/m]sb
+1010 lim 000xxxx-cnn-nnn-nnn   c: r0,r4 / n..: sign extended ±127
+1011 ls  000xxxx-sss-bbb-aaa sss: ldb ldw ldp stb stw stp mv  cmv / [b]yte [w]ord=2B [p]age=2B*8
+1100 cmp 000xxxx-sss-bbb-aaa sss: sn  lt  le  eq  gt  ge  slt sgt / return: false=0 true=1 / 
 1101 tst 000xxxx-sss-bbb-aaa sss: tio tno tan tna txo txn tim tni / return: false=0 true=1
 1110 jmp 000xxxx-sss-bbb-aaa sss: jal jr  jd  ji  cjr cjd cji ret / bbb: ađdr / aaa: cmp to true=1
-1111 int 000xxxx-nnn-nnn-nnn
+1111 int 000xxxx-nnn-nnn-nnn n..: interupt code, data or address [wip]
 
 
 """
@@ -72,35 +72,3 @@ Maximum packet side
 """
 
 
-
-
-
-
-
-
-
-
-"""
-
-XOR HASH
-
-11011100 = addr
-[110]11100 = A<<5	#segment? can be stored seperately to deHASH(addr) 
-## Shift amount/"window" can be adjusted if process is assigned more instr memory
-110[11100] = B		#low-order address?}
-
-(A<<2) XOR B =	00011000 ## here too
-				00011100 XOR 
-				________
-				00000100 = HASH(addr)
-
--- heres how to dehash --
-((A<<5) or (A<<2)) XOR (HASH(addr)) 	==
-((A<<5) or (A<<2)) XOR ((A<<2) XOR B))	==
-
-A<<5 or A<<2  = 11011000
-HASH(addr)	  = 00000100 XOR
-				________
-		h7550]		11011100 = add-	
-
-"""
