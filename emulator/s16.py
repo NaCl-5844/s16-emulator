@@ -26,7 +26,44 @@ xxxx|op-|format-------------
 
 """
 
-
+class s16:
+	def ior(packet):
+		a = packet["a"]
+		b = packet["b"]
+		outbound_packet = {}
+		outbound_packet["c"] = a | b
+		# copy <packet>, except from ["a"] and ["b"], to <outbound_packet> using hatever func to merge dictionaries
+		return outbound_packet
+	def and():
+		return 0
+	def xor():
+		return 0
+	def abs():
+		return 0
+	def add():
+		return 0
+	def adc():
+		return 0
+	def sub():
+		return 0
+	def sbb():
+		return 0
+	def bsh():
+		return 0
+	def bd():
+		return 0
+	def lim():
+		return 0
+	def ls():
+		return 0
+	def cmp():
+		return 0
+	def tst():
+		return 0
+	def jmp():
+		return 0
+	def int():
+		return 0
 
 class control:
 """
