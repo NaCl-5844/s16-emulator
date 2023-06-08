@@ -27,42 +27,85 @@ xxxx|op-|format-------------
 """
 
 class s16:
-	def ior(packet):
-		a = packet["a"]
-		b = packet["b"]
-		outbound_packet = {}
-		outbound_packet["c"] = a | b
+	def ior(i_packet):
+		a = i_packet["a"]
+		b = i_packet["b"]
+		out_i_packet = {}
+		out_i_packet["c"] = a | b
 		# copy <packet>, except from ["a"] and ["b"], to <outbound_packet> using hatever func to merge dictionaries
-		return outbound_packet
-	def and():
+		return out_i_packet
+	def and(i_packet):
+		a = i_packet["a"]
+		b = i_packet["b"]
+		out_i_packet = {}
+		out_i_packet["c"] = a & b
+		return out_i_packet
+	def xor(i_packet):
+		a = i_packet["a"]
+		b = i_packet["b"]
+		out_i_packet = {}
+		out_i_packet["c"] = a ^ b
+		return out_i_packet 
+	def abs(i_packet):
+		a = i_packet["a"]
+		out_i_packet = {}
+		out_i_packet["c"] = abs(a)
+		return out_i_packet 
+	def add(i_packet):
+		a = i_packet["a"]
+		b = i_packet["b"]
+		out_i_packet = {}
+		out_i_packet["c"] = a + b
+		return out_i_packet
+	def adc(i_packet):
+		a = i_packet["a"]
+		b = i_packet["b"]
+		out_i_packet = {}
+		out_i_packet["c"] = a & b
+		return out_i_packet
+	def sub(i_packet):
+		a = i_packet["a"]
+		b = i_packet["b"]
+		out_i_packet = {}
+		out_i_packet["c"] = a & b
+		return out_i_packet
+	def sbb(i_packet):
+		a = i_packet["a"]
+		b = i_packet["b"]
+		out_i_packet = {}
+		out_i_packet["c"] = a & b
+		return out_i_packet
+	def bsh(i_packet):
+		a = i_packet["a"]
+		b = i_packet["b"]
+		out_i_packet = {}
+		out_i_packet["c"] = a & b
+		return out_i_packet
+	def bd(i_packet):
+
+		out_i_packet = {}
+		out_i_packet["c"] = a & b
+		return out_i_packet
+	def lim(i_packet):
+		a = i_packet["a"]
+		b = i_packet["b"]
+		out_i_packet = {}
+		out_i_packet["c"] = a & b
+		return out_i_packet
+	def ls(i_packet):
+
+		return out_i_packet
+	def cmp(i_packet):
+		a = i_packet["a"]
+		b = i_packet["b"]
+		out_i_packet = {}
+		out_i_packet["c"] = a & b
+		return out_i_packet
+	def tst(i_packet):
 		return 0
-	def xor():
+	def jmp(i_packet):
 		return 0
-	def abs():
-		return 0
-	def add():
-		return 0
-	def adc():
-		return 0
-	def sub():
-		return 0
-	def sbb():
-		return 0
-	def bsh():
-		return 0
-	def bd():
-		return 0
-	def lim():
-		return 0
-	def ls():
-		return 0
-	def cmp():
-		return 0
-	def tst():
-		return 0
-	def jmp():
-		return 0
-	def int():
+	def int(i_packet):
 		return 0
 
 class control:
