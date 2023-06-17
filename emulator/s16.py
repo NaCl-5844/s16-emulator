@@ -1,4 +1,4 @@
-
+from pprint import pprint
 
 
 """
@@ -26,87 +26,91 @@ xxxx|op-|format-------------
 
 """
 
+
 class s16:
-	def ior(i_packet):
+	# "i16..." -> 16-bit instruction / also fixes built-in function clashes
+	def i16_ior(i_packet):
 		a = i_packet["a"]
 		b = i_packet["b"]
 		out_i_packet = {}
 		out_i_packet["c"] = a | b
 		# copy <packet>, except from ["a"] and ["b"], to <outbound_packet> using hatever func to merge dictionaries
 		return out_i_packet
-	def and(i_packet):
-		a = i_packet["a"]
-		b = i_packet["b"]
-		out_i_packet = {}
-		out_i_packet["c"] = a & b
-		return out_i_packet
-	def xor(i_packet):
-		a = i_packet["a"]
-		b = i_packet["b"]
-		out_i_packet = {}
-		out_i_packet["c"] = a ^ b
-		return out_i_packet 
-	def abs(i_packet):
-		a = i_packet["a"]
-		out_i_packet = {}
-		out_i_packet["c"] = abs(a)
-		return out_i_packet 
-	def add(i_packet):
-		a = i_packet["a"]
-		b = i_packet["b"]
-		out_i_packet = {}
-		out_i_packet["c"] = a + b
-		return out_i_packet
-	def adc(i_packet):
-		a = i_packet["a"]
-		b = i_packet["b"]
-		out_i_packet = {}
-		out_i_packet["c"] = a & b
-		return out_i_packet
-	def sub(i_packet):
-		a = i_packet["a"]
-		b = i_packet["b"]
-		out_i_packet = {}
-		out_i_packet["c"] = a & b
-		return out_i_packet
-	def sbb(i_packet):
-		a = i_packet["a"]
-		b = i_packet["b"]
-		out_i_packet = {}
-		out_i_packet["c"] = a & b
-		return out_i_packet
-	def bsh(i_packet):
-		a = i_packet["a"]
-		b = i_packet["b"]
-		out_i_packet = {}
-		out_i_packet["c"] = a & b
-		return out_i_packet
-	def bd(i_packet):
+		
+		
+	# def i16_and(i_packet):
+	# 	a = i_packet["a"]
+	# 	b = i_packet["b"]
+	# 	out_i_packet = {}
+	# 	out_i_packet["c"] = a & b
+	# 	return out_i_packet
+	# def xor(i_packet):
+	# 	a = i_packet["a"]
+	# 	b = i_packet["b"]
+	# 	out_i_packet = {}
+	# 	out_i_packet["c"] = a ^ b
+	# 	return out_i_packet 
+	# def abs(i_packet):
+	# 	a = i_packet["a"]
+	# 	out_i_packet = {}
+	# 	out_i_packet["c"] = abs(a)
+	# 	return out_i_packet 
+	# def add(i_packet):
+	# 	a = i_packet["a"]
+	# 	b = i_packet["b"]
+	# 	out_i_packet = {}
+	# 	out_i_packet["c"] = a + b
+	# 	return out_i_packet
+	# def adc(i_packet):
+	# 	a = i_packet["a"] 
+	# 	b = i_packet["b"] 
+	# 	out_i_packet = {}
+	# 	out_i_packet["c"] = a & b
+	# 	return out_i_packet
+	# def sub(i_packet):
+	# 	a = i_packet["a"]
+	# 	b = i_packet["b"]
+	# 	out_i_packet = {}
+	# 	out_i_packet["c"] = a & b
+	# 	return out_i_packet
+	# def sbb(i_packet):
+	# 	a = i_packet["a"]
+	# 	b = i_packet["b"]
+	# 	out_i_packet = {}
+	# 	out_i_packet["c"] = a & b
+	# 	return out_i_packet
+	# def bsh(i_packet):
+	# 	a = i_packet["a"]
+	# 	b = i_packet["b"]
+	# 	out_i_packet = {}
+	# 	out_i_packet["c"] = a & b
+	# 	return out_i_packet
+	# def bd(i_packet):
 
-		out_i_packet = {}
-		out_i_packet["c"] = a & b
-		return out_i_packet
-	def lim(i_packet):
-		a = i_packet["a"]
-		b = i_packet["b"]
-		out_i_packet = {}
-		out_i_packet["c"] = a & b
-		return out_i_packet
-	def ls(i_packet):
+	# 	out_i_packet = {}
+	# 	out_i_packet["c"] = a & b
+	# 	return out_i_packet
+	# def lim(i_packet):
+	# 	a = i_packet["a"]
+	# 	b = i_packet["b"]
+	# 	out_i_packet = {}
+	# 	out_i_packet["c"] = a & b
+	# 	return out_i_packet
+	# def ls(i_packet):
 
-		return out_i_packet
-	def cmp(i_packet):
-		a = i_packet["a"]
-		b = i_packet["b"]
-		out_i_packet = {}
-		out_i_packet["c"] = a & b
-		return out_i_packet
-	def tst(i_packet):
-		return 0
-	def jmp(i_packet):
-		return 0
-	def int(i_packet):
-		return 0
+	# 	return out_i_packet
+	# def cmp(i_packet):
+	# 	a = i_packet["a"]
+	# 	b = i_packet["b"]
+	# 	out_i_packet = {}
+	# 	out_i_packet["c"] = a & b
+	# 	return out_i_packet
+	# def tst(i_packet):
+	# 	return 0
+	# def jmp(i_packet):
+	# 	return 0
+	# def int(i_packet):
+	# 	return 0
 
 class control:
 """
@@ -117,12 +121,45 @@ class control:
 	
 class memory:
 """
-[Aim]: To generate the various memory structures in a dynamic method which allows
+[Aim]: To generate the various memory structures in a dynamic way which allows
 a lot of testing and debugging.
 
 [varables/Objects?]: capacity=x/direct_memory, capacity=x/ways=y/algorithm=z/cache_memory
 """
 	
+	def generate_cache(byte_capacity, ways, cost, evict_algorithm):
+		if ways < 2:
+			address_count = byte_capacity >> 1
+			cache = {}
+			for a in range(address_count):
+				cache[a] = {"0000"}
+		else:
+			for w in range(ways):
+				
+		cache["cost"] = [cost]
+		cache["evict_algorithm"] = [evict_algorithm]
+		pprint(cache)
+		return cache
+	
+	def generate_memory(byte_capacity, cost):
+		address_count = byte_capacity >> 1
+		memory = {}
+		for a in range(address_count):
+			memory[a] = {"0000"}
+		memory["cost"] = [cost]
+		memory["cost"] = [cost]
+		pprint(memory)
+		return memory
+		
+	def read_memory(memory, address, data):
+		return updated_memory
+	def read_cache(cache, address, data):
+		return updated_cache
+	def write_memory(memory, address, data):
+		return updated_memory
+	def write_cache(cache, address, data):
+		return updated_cache
+
 class interconnect:
 """
 [Aim]: to allow communication between peripheral components connected to the CPU.
