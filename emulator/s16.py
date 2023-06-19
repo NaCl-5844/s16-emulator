@@ -29,89 +29,89 @@ xxxx|op-|format-------------
 
 
 class s16:
-	# "i16..." -> 16-bit instruction / also fixes built-in function clashes
-	def i16_ior(i_packet):
-		a = i_packet["a"]
-		b = i_packet["b"]
-		out_i_packet = {}
-		out_i_packet["c"] = a | b
-		# copy <packet>, except from ["a"] and ["b"], to <outbound_packet> using hatever func to merge dictionaries
-		return out_i_packet
+    # "i16..." -> 16-bit instruction / also fixes built-in function clashes
+    def i16_ior(i_packet):
+        a = i_packet["a"]
+        b = i_packet["b"]
+        out_i_packet = {}
+        out_i_packet["c"] = a | b
+        # copy <packet>, except from ["a"] and ["b"], to <outbound_packet> using hatever func to merge dictionaries
+        return out_i_packet
 
 
-	# def i16_and(i_packet):
-	# 	a = i_packet["a"]
-	# 	b = i_packet["b"]
-	# 	out_i_packet = {}
-	# 	out_i_packet["c"] = a & b
-	# 	return out_i_packet
-	# def i16_xor(i_packet):
-	# 	a = i_packet["a"]
-	# 	b = i_packet["b"]
-	# 	out_i_packet = {}
-	# 	out_i_packet["c"] = a ^ b
-	# 	return out_i_packet
-	# def i16_abs(i_packet):
-	# 	a = i_packet["a"]
-	# 	out_i_packet = {}
-	# 	out_i_packet["c"] = abs(a)
-	# 	return out_i_packet
-	# def i16_add(i_packet):
-	# 	a = i_packet["a"]
-	# 	b = i_packet["b"]
-	# 	out_i_packet = {}
-	# 	out_i_packet["c"] = a + b
-	# 	return out_i_packet
-	# def i16_adc(i_packet):
-	# 	a = i_packet["a"]
-	# 	b = i_packet["b"]
-	# 	out_i_packet = {}
-	# 	out_i_packet["c"] = a & b
-	# 	return out_i_packet
-	# def i16_sub(i_packet):
-	# 	a = i_packet["a"]
-	# 	b = i_packet["b"]
-	# 	out_i_packet = {}
-	# 	out_i_packet["c"] = a & b
-	# 	return out_i_packet
-	# def i16_sbb(i_packet):
-	# 	a = i_packet["a"]
-	# 	b = i_packet["b"]
-	# 	out_i_packet = {}
-	# 	out_i_packet["c"] = a & b
-	# 	return out_i_packet
-	# def i16_bsh(i_packet):
-	# 	a = i_packet["a"]
-	# 	b = i_packet["b"]
-	# 	out_i_packet = {}
-	# 	out_i_packet["c"] = a & b
-	# 	return out_i_packet
-	# def i16_bd(i_packet):
+    # def i16_and(i_packet):
+    # 	a = i_packet["a"]
+    # 	b = i_packet["b"]
+    # 	out_i_packet = {}
+    # 	out_i_packet["c"] = a & b
+    # 	return out_i_packet
+    # def i16_xor(i_packet):
+    # 	a = i_packet["a"]
+    # 	b = i_packet["b"]
+    # 	out_i_packet = {}
+    # 	out_i_packet["c"] = a ^ b
+    # 	return out_i_packet
+    # def i16_abs(i_packet):
+    # 	a = i_packet["a"]
+    # 	out_i_packet = {}
+    # 	out_i_packet["c"] = abs(a)
+    # 	return out_i_packet
+    # def i16_add(i_packet):
+    # 	a = i_packet["a"]
+    # 	b = i_packet["b"]
+    # 	out_i_packet = {}
+    # 	out_i_packet["c"] = a + b
+    # 	return out_i_packet
+    # def i16_adc(i_packet):
+    # 	a = i_packet["a"]
+    # 	b = i_packet["b"]
+    # 	out_i_packet = {}
+    # 	out_i_packet["c"] = a & b
+    # 	return out_i_packet
+    # def i16_sub(i_packet):
+    # 	a = i_packet["a"]
+    # 	b = i_packet["b"]
+    # 	out_i_packet = {}
+    # 	out_i_packet["c"] = a & b
+    # 	return out_i_packet
+    # def i16_sbb(i_packet):
+    # 	a = i_packet["a"]
+    # 	b = i_packet["b"]
+    # 	out_i_packet = {}
+    # 	out_i_packet["c"] = a & b
+    # 	return out_i_packet
+    # def i16_bsh(i_packet):
+    # 	a = i_packet["a"]
+    # 	b = i_packet["b"]
+    # 	out_i_packet = {}
+    # 	out_i_packet["c"] = a & b
+    # 	return out_i_packet
+    # def i16_bd(i_packet):
 
-	# 	out_i_packet = {}
-	# 	out_i_packet["c"] = a & b
-	# 	return out_i_packet
-	# def i16_lim(i_packet):
-	# 	a = i_packet["a"]
-	# 	b = i_packet["b"]
-	# 	out_i_packet = {}
-	# 	out_i_packet["c"] = a & b
-	# 	return out_i_packet
-	# def i16_ls(i_packet):
+    # 	out_i_packet = {}
+    # 	out_i_packet["c"] = a & b
+    # 	return out_i_packet
+    # def i16_lim(i_packet):
+    # 	a = i_packet["a"]
+    # 	b = i_packet["b"]
+    # 	out_i_packet = {}
+    # 	out_i_packet["c"] = a & b
+    # 	return out_i_packet
+    # def i16_ls(i_packet):
 
-	# 	return out_i_packet
-	# def i16_cmp(i_packet):
-	# 	a = i_packet["a"]
-	# 	b = i_packet["b"]
-	# 	out_i_packet = {}
-	# 	out_i_packet["c"] = a & b
-	# 	return out_i_packet
-	# def i16_tst(i_packet):
-	# 	return 0
-	# def i16_jmp(i_packet):
-	# 	return 0
-	# def i16_int(i_packet):
-	# 	return 0
+    # 	return out_i_packet
+    # def i16_cmp(i_packet):
+    # 	a = i_packet["a"]
+    # 	b = i_packet["b"]
+    # 	out_i_packet = {}
+    # 	out_i_packet["c"] = a & b
+    # 	return out_i_packet
+    # def i16_tst(i_packet):
+    # 	return 0
+    # def i16_jmp(i_packet):
+    # 	return 0
+    # def i16_int(i_packet):
+    # 	return 0
 
 class control:
 """
@@ -127,8 +127,18 @@ a lot of testing and debugging.
 
 [varables/Objects?]: capacity=x/direct_memory, capacity=x/ways=y/algorithm=z/cache_memory
 """
-
-	def generate_cache(byte_capacity, ways, cost, evict_algorithm):
+    def lru(cache, way, entry): # Least Recently Used
+    """
+    I think this needs to be its own class
+    """
+        target_way = cache[way]
+        target_way['addr'].insert(0, target_way['addr'].pop(-1))
+        target_way['data'].insert(0, target_way['data'].pop(-1))
+        
+        return target_way
+    
+    
+    def generate_cache(byte_capacity, ways, cost, evict_algorithm):
         """
         x-way set-associative describes how the replacement algorithm is split across all entries of the cache.
         -- fully associative means the algorithm would act on all entries.
@@ -139,7 +149,7 @@ a lot of testing and debugging.
         address_count = byte_capacity >> 1 # Shifting right divides by powers of 2 -> byte_capacity / 2**1
         entries_per_set = address_count / ways
         if ways < 2:
-            cache = {'addr': [], 'data': []}
+            cache['way_0'] = {'addr': [], 'data': []}
             for a in range(address_count):
                 cache['addr'].insert(0, '0000')
                 cache['data'].insert(0, '0000')
@@ -153,24 +163,24 @@ a lot of testing and debugging.
 
         cache['cost'] = cost
         cache['evict_algorithm'] = evict_algorithm
-        return cache
+        return cache # cache['way_x']['addr'/'data']
 
-	def generate_memory(byte_capacity, cost):
-		address_count = byte_capacity >> 1
-		memory = {}
-		for a in range(address_count):
-			memory[a] = {"0000"}
-		memory["cost"] = [cost]
-		return memory
+    def generate_memory(byte_capacity, cost):
+        address_count = byte_capacity >> 1
+        memory = {}
+        for a in range(address_count):
+            memory[a] = {"0000"}
+        memory["cost"] = [cost]
+        return memory
 
-	# def read_memory(memory, address, data):
-	# 	return updated_memory
-	# def read_cache(cache, address, data):
-	# 	return updated_cache
-	# def write_memory(memory, address, data):
-	# 	return updated_memory
-	# def write_cache(cache, address, data):
-	# 	return updated_cache
+    # def read_memory(memory, address, data):
+    #   return updated_memory
+    # def read_cache(cache, address, data):
+    #   return updated_cache
+    # def write_memory(memory, address, data):
+    #   return updated_memory
+    # def write_cache(cache, address, data):
+    #   return updated_cache
 
 class interconnect:
 """
