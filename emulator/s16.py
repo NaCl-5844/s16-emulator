@@ -113,27 +113,31 @@ class s16:
     # def i16_int(i_packet):
     # 	return 0
 
-class control:
-"""
-[Aim]: To decode, schedule, clock, interupts and monitor all "in-flight" operations
-
-[Varables/Objects?]: count/program_counter, clock, instruction_decode, ...
-"""
-
+# class control:
+    """
+    [Aim]: To decode, schedule, clock, interupts and monitor all "in-flight" operations
+    
+    [Varables/Objects?]: count/program_counter, clock, instruction_decode, ...
+    """
+    
 class memory:
-"""
-[Aim]: To generate the various memory structures in a dynamic way which allows
-a lot of testing and debugging.
-
-[varables/Objects?]: capacity=x/direct_memory, capacity=x/ways=y/algorithm=z/cache_memory
-"""
+    """
+    [Aim]: To generate the various memory structures in a dynamic way which allows
+    a lot of testing and debugging.
+    
+    [varables/Objects?]: capacity=x/direct_memory, capacity=x/ways=y/algorithm=z/cache_memory
+    """
     def lru(cache, way, entry): # Least Recently Used
-    """
-    I think this needs to be its own class
-    """
+        """
+        I think this needs to be its own class
+        
+        OR
+        
+        Coded alongside memory.read()
+        """
         target_way = cache[way]
-        target_way['addr'].insert(0, target_way['addr'].pop(-1))
-        target_way['data'].insert(0, target_way['data'].pop(-1))
+        target_way['addr'].insert(0, target_way['addr'].pop(entry['addr']))
+        target_way['data'].insert(0, target_way['data'].pop(entry['data']))
         
         return target_way
     
@@ -165,48 +169,65 @@ a lot of testing and debugging.
         cache['evict_algorithm'] = evict_algorithm
         return cache # cache['way_x']['addr'/'data']
 
-    def generate_memory(byte_capacity, cost):
+    def generate_memory(byte_capacity, cost): 
         address_count = byte_capacity >> 1
         memory = {}
         for a in range(address_count):
             memory[a] = {"0000"}
         memory["cost"] = [cost]
         return memory
-
+   
+    # Memory read/write functions seem unnecessary 
+    
     # def read_memory(memory, address, data):
-    #   return updated_memory
-    # def read_cache(cache, address, data):
-    #   return updated_cache
-    # def write_memory(memory, address, data):
-    #   return updated_memory
-    # def write_cache(cache, address, data):
-    #   return updated_cache
+    #     updated_memory = {}
+    #     return updated_memory
+    
+        # def write_memory(memory, address, data):
+    #     updated_memory = {}
+    #     return updated_memory
+    
+    def read_cache(cache, address, data):
+        # < split address into (set,tag) >
+        # < search set >
+        # entry = {'addr': address, 'data': data}
+        # < if entry['addr'] in cache['way']: >
+        # <     read cache['way']['address'] >
+        # <     cache['evict_algorithm'](cache, cache['way']. entry) # lru(cache, way, entry)
+            
+        updated_cache = {}
+        return updated_cache
+    
+    def write_cache(cache, address, data):
+        updated_cache = {}
+        return updated_cache
 
-class interconnect:
-"""
-[Aim]: to allow communication between peripheral components connected to the CPU.
+# class interconnect: 
+# """
+# [Aim]: to allow communication between peripheral components connected to the CPU.
 
-[Variables]: bus_address, communication_type?
+# [Variables]: bus_address, communication_type?
 
-"""
+# """
+    
+# # class execute:
+# """
+# [Aim]: stores all instructions and sub operations that are mapped to functions. The functions
+# must act on/the default data type will be hexadecimal.
 
-class execute:
-"""
-[Aim]: stores all instructions and sub operations that are mapped to functions. The functions
-must act on/the default data type will be hexadecimal.
+# [Objects] arithmetic_unit, control_unit, memory_buffer
+# """
+    
+# # class packet:
+# """
+# [Aim]: To hold data, flags, adresses, etc which has been decoded from a given instruction. This packet will live until there are
+# no more sub operations and/or a "write-back" has occured.
 
-[Objects] arithmetic_unit, control_unit, memory_buffer
-"""
+# [Variables]: instruction, sub_operation(s), source(s), sink(s/destination). Possibly debugging variables such as age(cycles lived).
 
-class packet:
-"""
-[Aim]: To hold data, flags, adresses, etc which has been decoded from a given instruction. This packet will live until there are
-no more sub operations and/or a "write-back" has occured.
+# [Info]
+# Maximum packet side
 
-[Variables]: instruction, sub_operation(s), source(s), sink(s/destination). Possibly debugging variables such as age(cycles lived).
-
-[Info]
-Maximum packet side
-
-"""
-
+# """
+    
+pprint(memory.generate_memory(64, 2))
