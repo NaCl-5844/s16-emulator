@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 from pprint import pprint
+import math
 
 
 """
@@ -142,16 +143,17 @@ class memory:
         return target_way
     
     
-    def generate_cache(byte_capacity, ways, cost, evict_algorithm):
+    def generate_cache(byte_capacity, ways, replacement_algorithm, cost):
         """
         x-way set-associative describes how the replacement algorithm is split across all entries of the cache.
-        -- fully associative means the algorithm would act on all entries.
-        -- 2-way set-associative means if one half is accessed and an entry is replaced, due to the 2-way addressing the other half would not be effected
-        -- 4-way ... etc, etc
-        The pros and cons boil down to how many entries can you have based on the speed/complexity of a replacment algorithm
+        -- fully associative means the algorithm would act on all entries as a single set.
+        -- 2-way set-associative means if one half is accessed and an entry is replaced, due to the 2-way addressing the other half would not be effected.
+        -- 4-way ... etc, etc.
+        The pros and cons of speed and complexity decide the specific type of a replacment algorithm.
+        [E.g. For # of ways: LRU is simple and fast for low # of ways, Random Replacement(RR) is trivial and those that combine multiple algorithms, like ARC, are slower but more efficient]
         """
         address_count = byte_capacity >> 1 # Shifting right divides by powers of 2 -> byte_capacity / 2**1
-        entries_per_set = address_count / ways
+        entries_per_set = int(address_count / ways) # Need to add better a whole number sanity check?
         if ways < 2:
             cache['way_0'] = {'addr': [], 'data': []}
             for a in range(address_count):
@@ -159,21 +161,21 @@ class memory:
                 cache['data'].insert(0, '0000')
         else:
             cache = {}
-            for w in range(ways):
+            for w in range(ways): # ways, as in, x-way set-associative
                 cache[f'way_{w:x}'] = {'addr': [], 'data': []}
                 for a in range(int(entries_per_set)):
                     cache[f"way_{w:x}"]['addr'].insert(0, '0000')
                     cache[f"way_{w:x}"]['data'].insert(0, '0000')
 
         cache['cost'] = cost
-        cache['evict_algorithm'] = evict_algorithm
+        cache['replacement_algorithm'] = replacement_algorithm
         return cache # cache['way_x']['addr'/'data']
 
     def generate_memory(byte_capacity, cost): 
         address_count = byte_capacity >> 1
         memory = {}
-        for a in range(address_count):
-            memory[a] = {"0000"}
+        for a in range(address_count): # building the memory
+            memory[f"{a:0{address_count.bit_length()-4}x}"] = '0000' # Hex formatting -- address_count.bit_length()-4 == log2(x)-4
         memory["cost"] = [cost]
         return memory
    
@@ -183,7 +185,7 @@ class memory:
     #     updated_memory = {}
     #     return updated_memory
     
-        # def write_memory(memory, address, data):
+    # def write_memory(memory, address, data):
     #     updated_memory = {}
     #     return updated_memory
     
@@ -193,7 +195,7 @@ class memory:
         # entry = {'addr': address, 'data': data}
         # < if entry['addr'] in cache['way']: >
         # <     read cache['way']['address'] >
-        # <     cache['evict_algorithm'](cache, cache['way']. entry) # lru(cache, way, entry)
+        # <     cache['replacement_algorithm'](cache, cache['way']. entry) # lru(cache, way, entry)
             
         updated_cache = {}
         return updated_cache
@@ -230,4 +232,15 @@ class memory:
 
 # """
     
-pprint(memory.generate_memory(64, 2))
+
+
+#----Testing----#
+gp_registers = memory.generate_memory(64, 2)
+l1_data_cache = memory.generate_cache(64, 2, memory.lru, 4)
+
+gp_registers['00'] = 'ffff'
+
+
+
+pprint(gp_registers)
+# pprint(l1_data_cache)
