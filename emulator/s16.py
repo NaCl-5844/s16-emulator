@@ -1,7 +1,29 @@
 #!/usr/bin/env python
-from pprint import pprint
-import math
+from pprint import pprint # Pretty Print -- may create own print functions
+# import math
 
+#----[Global Functions]----#
+
+def cache_print(cache, name):
+    tag_count = 0
+    print(f"\n{name}",'{')
+    for way in cache:
+        print(way, end="")
+        for t in range(len(cache[way]['tag'])):
+            print(f"\t{cache[way]['tag'][t]} [{' '.join(list(cache[way]['data'][t].values()))}]")
+    print('}')
+
+def mem_print(memory, name):
+    memory.pop('cost')
+    print(f"\n{name}",'{')
+    rows = len(memory) >> 3 # x >> 3 == x/2**3
+    for r in range(rows):
+        try:
+            print(f"\t{' '.join(list(memory.values())[r*8:(r+1)*8])}")
+        except KeyError:
+            0
+    print('}')
+#--------------------------#
 
 """
 [key: x=opcode s=subop, a|b=source, c=dest, n=imm/val]
@@ -27,6 +49,7 @@ xxxx|op-|format-------------
 
 
 """
+
 
 
 class s16:
@@ -128,6 +151,13 @@ class memory:
     
     [varables/Objects?]: capacity=x/direct_memory, capacity=x/ways=y/algorithm=z/cache_memory
     """
+
+    # call variables
+
+    def __init__(self, page_size):
+        self.page_size = page_size
+
+    @classmethod
     def lru(cache, way, entry): # Least Recently Used
         """
         I think this needs to be its own class
@@ -142,42 +172,44 @@ class memory:
         
         return target_way
     
-    
-    def generate_cache(byte_capacity, ways, replacement_algorithm, cost):
+
+    def generate_cache(self, byte_capacity, ways, replacement_algorithm, cost):
         """
         x-way set-associative describes how the replacement algorithm is split across all entries of the cache.
         -- fully associative means the algorithm would act on all entries as a single set.
         -- 2-way set-associative means if one half is accessed and an entry is replaced, due to the 2-way addressing the other half would not be effected.
         -- 4-way ... etc, etc.
         The pros and cons of speed and complexity decide the specific type of a replacment algorithm.
-        [E.g. For # of ways: LRU is simple and fast for low # of ways, Random Replacement(RR) is trivial and those that combine multiple algorithms, like ARC, are slower but more efficient]
+        [E.g. For # of ways: LRU is simple and fast for low # of ways, Random Replacement(RR) is trivial and combined algorithms, like ARC, are slower but more efficient]
         """
-        address_count = byte_capacity >> 1 # Shifting right divides by powers of 2 -> byte_capacity / 2**1
-        entries_per_set = int(address_count / ways) # Need to add better a whole number sanity check?
+        cache = {} # cache decoding: way | tag | offset
+        total_tag_count = int((byte_capacity >> 1) / self.page_size) # use self.page_size # Shifting right divides by powers of 2 (x>>1 == x/2**1)
+        tags_per_way = int(total_tag_count / ways)
+        print('total_tag_count:', total_tag_count, '\ntags_per_way:', tags_per_way)
         if ways < 2:
-            cache['way_0'] = {'addr': [], 'data': []}
-            for a in range(address_count):
-                cache['addr'].insert(0, '0000')
-                cache['data'].insert(0, '0000')
+            cache['way_0'] = {'tag': [], 'data': []}
+            for a in range(total_tag_count):
+                cache['way_0']['tag'].insert(0, '0000')
+                cache['way_0']['data'].insert(0, {f"{offset:0{self.page_size.bit_length()-4}x}": '0000' for offset in range(self.page_size)})
         else:
-            cache = {}
             for w in range(ways): # ways, as in, x-way set-associative
-                cache[f'way_{w:x}'] = {'addr': [], 'data': []}
-                for a in range(int(entries_per_set)):
-                    cache[f"way_{w:x}"]['addr'].insert(0, '0000')
-                    cache[f"way_{w:x}"]['data'].insert(0, '0000')
+                cache[f'way_{w:x}'] = {'tag': [], 'data': []}
+                for a in range(tags_per_way):
+                    cache[f"way_{w:x}"]['tag'].insert(0, '0000')
+                    cache[f"way_{w:x}"]['data'].insert(0, {f"{offset:0{self.page_size.bit_length()-4}x}": '0000' for offset in range(self.page_size)})
+        return cache # cache['way_x']['tag'/'data']
 
-        cache['cost'] = cost
-        cache['replacement_algorithm'] = replacement_algorithm
-        return cache # cache['way_x']['addr'/'data']
 
-    def generate_memory(byte_capacity, cost): 
+    def generate_memory(self, byte_capacity, cost):
         address_count = byte_capacity >> 1
         memory = {}
         for a in range(address_count): # building the memory
             memory[f"{a:0{address_count.bit_length()-4}x}"] = '0000' # Hex formatting -- address_count.bit_length()-4 == log2(x)-4
         memory["cost"] = [cost]
         return memory
+
+    def generate_reorder_buffer():
+        0
    
     # Memory read/write functions seem unnecessary 
     
@@ -235,12 +267,12 @@ class memory:
 
 
 #----Testing----#
-gp_registers = memory.generate_memory(64, 2)
-l1_data_cache = memory.generate_cache(64, 2, memory.lru, 4)
+mem = memory(16)
+gp_registers = mem.generate_memory(64, 2)
+l1_data_cache = mem.generate_cache(64, 2, memory.lru, 4)
 
 gp_registers['00'] = 'ffff'
 
 
-
-pprint(gp_registers)
-# pprint(l1_data_cache)
+mem_print(gp_registers, 'GPR')
+cache_print(l1_data_cache, 'L1 Cache')
