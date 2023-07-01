@@ -1,29 +1,63 @@
 #!/usr/bin/env python
-from pprint import pprint # Pretty Print -- may create own print functions
+# from pprint import pprint # Pretty Print -- may create own print functions
 # import math
 
-#----[Global Functions]----#
+##----[Note]----##
 
-def cache_print(cache, name):
-    tag_count = 0
-    print(f"\n{name}",'{')
-    for way in cache:
-        print(way, end="")
-        for t in range(len(cache[way]['tag'])):
-            print(f"\t{cache[way]['tag'][t]} [{' '.join(list(cache[way]['data'][t].values()))}]")
-    print('}')
+# s16 = Simple 16
+# Page = Block of 32 Bytes = (16-bits*16)/8
 
-def mem_print(memory, name):
-    memory.pop('cost')
-    print(f"\n{name}",'{')
-    rows = len(memory) >> 3 # x >> 3 == x/2**3
-    for r in range(rows):
-        try:
-            print(f"\t{' '.join(list(memory.values())[r*8:(r+1)*8])}")
-        except KeyError:
-            0
-    print('}')
-#--------------------------#
+#----[Custom Pretty Print class]----#
+
+class pprint:
+
+    def cache_horiz(cache, name):
+        tag_count = 0
+        print(f"\n{name}",'{')
+        for way in cache:
+            print(way, end='')
+            for t in range(len(cache[way]['tag'])):
+                print(f"\t{cache[way]['tag'][t]} [{' '.join(list(cache[way]['data'][t].values()))}]")
+        print('}')
+
+    def cache_vert(cache, name):
+        columns = range(len(cache))
+        print(f"\n{name}",'{') # Title
+        for x_axis_ways in columns: # Display "ways", or sets, along the x axis in a table format
+            print(f"way{x_axis_ways}\t", end='')
+        print()
+        for x_axis_tags in cache:  # Display "tags", along the x axis in a table format
+            print(f"{cache[x_axis_tags]['tag'][0]}\t", end='')
+        print("\n")
+        for offsets in range(len(cache['way_0']['data'][0])): # A page's offset is the fine-grain address to access a given word(s16 -> 16-bit -> 2 bytes)
+            for pages in range(len(cache['way_0']['data'])): # Pages/blocks/cachelines are blocks of data which increaces the efficientcy of data movement
+                for ways in columns: # or sets -- x-way set-associative
+                    print(cache[f"way_{ways}"]['data'][pages][f"{offsets:x}"], "\t",  end='')
+            print()
+        print("}")
+
+    def mem(memory, name):
+        print(f"\n{name}",'{') # \n = newline
+        rows = len(memory) >> 3 # x >> 3 == x/2**3
+        for r in range(rows):
+            try:
+                print(f"{' '.join(list(memory.values())[r*8:(r+1)*8])}") # \f = form feed, \t = tab
+            except KeyError:
+                0
+        print('}')
+
+#----[Replacement Algorithms]----#
+
+def lru(cache, way, entry): # Least Recently Used
+    target_way = cache[way]
+    target_way['addr'].insert(0, target_way['addr'].pop(entry['addr'])) # Remove entry_address[-1] and insert into position [0], i.e. remove least recent and move into most recent
+    target_way['data'].insert(0, target_way['data'].pop(entry['data'])) # Remove entry_data[-1] and insert into position [0], i.e. remove least recent and move into most recent
+    return target_way
+
+def lfu(cache, way, entry):
+    return 0
+
+#----[]----#
 
 """
 [key: x=opcode s=subop, a|b=source, c=dest, n=imm/val]
@@ -52,7 +86,7 @@ xxxx|op-|format-------------
 
 
 
-class s16:
+class s16: # need to fins a way to incorporate the cycle cost of each instruction... eventually
     # "i16..." -> 16-bit instruction / also fixes built-in function clashes
     def i16_ior(i_packet):
         a = i_packet["a"]
@@ -144,7 +178,7 @@ class s16:
     [Varables/Objects?]: count/program_counter, clock, instruction_decode, ...
     """
     
-class memory:
+class generate_memory:
     """
     [Aim]: To generate the various memory structures in a dynamic way which allows
     a lot of testing and debugging.
@@ -155,25 +189,9 @@ class memory:
     # call variables
 
     def __init__(self, page_size):
-        self.page_size = page_size
+        self.page_size = page_size # I like to call cachelines pages >:D
 
-    @classmethod
-    def lru(cache, way, entry): # Least Recently Used
-        """
-        I think this needs to be its own class
-        
-        OR
-        
-        Coded alongside memory.read()
-        """
-        target_way = cache[way]
-        target_way['addr'].insert(0, target_way['addr'].pop(entry['addr']))
-        target_way['data'].insert(0, target_way['data'].pop(entry['data']))
-        
-        return target_way
-    
-
-    def generate_cache(self, byte_capacity, ways, replacement_algorithm, cost):
+    def cache(self, byte_capacity, ways, replacement_algorithm):
         """
         x-way set-associative describes how the replacement algorithm is split across all entries of the cache.
         -- fully associative means the algorithm would act on all entries as a single set.
@@ -190,25 +208,24 @@ class memory:
             cache['way_0'] = {'tag': [], 'data': []}
             for a in range(total_tag_count):
                 cache['way_0']['tag'].insert(0, '0000')
-                cache['way_0']['data'].insert(0, {f"{offset:0{self.page_size.bit_length()-4}x}": '0000' for offset in range(self.page_size)})
+                cache['way_0']['data'].insert(0, {f"{offset:0{self.page_size.bit_length()-4}x}": '0000' for offset in range(self.page_size)}) # Generate a initialised dictionary/page with offset(0 to f): 0000 (hex)
         else:
             for w in range(ways): # ways, as in, x-way set-associative
                 cache[f'way_{w:x}'] = {'tag': [], 'data': []}
                 for a in range(tags_per_way):
                     cache[f"way_{w:x}"]['tag'].insert(0, '0000')
-                    cache[f"way_{w:x}"]['data'].insert(0, {f"{offset:0{self.page_size.bit_length()-4}x}": '0000' for offset in range(self.page_size)})
+                    cache[f"way_{w:x}"]['data'].insert(0, {f"{offset:0{self.page_size.bit_length()-4}x}": '0000' for offset in range(self.page_size)}) # Generate a initialised dictionary/page with offset(0 to f): 0000 (hex)
         return cache # cache['way_x']['tag'/'data']
 
 
-    def generate_memory(self, byte_capacity, cost):
+    def memory(self, byte_capacity):
         address_count = byte_capacity >> 1
         memory = {}
         for a in range(address_count): # building the memory
             memory[f"{a:0{address_count.bit_length()-4}x}"] = '0000' # Hex formatting -- address_count.bit_length()-4 == log2(x)-4
-        memory["cost"] = [cost]
         return memory
 
-    def generate_reorder_buffer():
+    def reorder_buffer():
         0
    
     # Memory read/write functions seem unnecessary 
@@ -257,7 +274,7 @@ class memory:
 # [Aim]: To hold data, flags, adresses, etc which has been decoded from a given instruction. This packet will live until there are
 # no more sub operations and/or a "write-back" has occured.
 
-# [Variables]: instruction, sub_operation(s), source(s), sink(s/destination). Possibly debugging variables such as age(cycles lived).
+# [Variables]: instruction, sub_operation(s), source(s), sink(s/destination). Possibly debugging variables
 
 # [Info]
 # Maximum packet side
@@ -267,12 +284,14 @@ class memory:
 
 
 #----Testing----#
-mem = memory(16)
-gp_registers = mem.generate_memory(64, 2)
-l1_data_cache = mem.generate_cache(64, 2, memory.lru, 4)
+mem = generate_memory(16) # page_size=16
+gp_registers = mem.memory(64)
+l1_data_cache = mem.cache(64, 2, lru)
 
 gp_registers['00'] = 'ffff'
 
 
-mem_print(gp_registers, 'GPR')
-cache_print(l1_data_cache, 'L1 Cache')
+pprint.mem(gp_registers, 'GPR')
+pprint.cache_horiz(l1_data_cache, 'L1 Cache')
+pprint.cache_vert(l1_data_cache, 'L1 Cache')
+
