@@ -13,16 +13,16 @@ class pprint:
 
     def cache_horiz(cache, name):
         tag_count = 0
-        print(f"\n{name}",'{')
+        print(f"{name}",'{')
         for way in cache:
             print(way, end='')
             for t in range(len(cache[way]['tag'])):
                 print(f"\t{cache[way]['tag'][t]} [{' '.join(list(cache[way]['data'][t].values()))}]")
-        print('}')
+        print("}\n")
 
     def cache_vert(cache, name):
         columns = range(len(cache))
-        print(f"\n{name}",'{') # Title
+        print(f"{name}",'{') # Title
         for x_axis_ways in columns: # Display "ways", or sets, along the x axis in a table format
             print(f"way{x_axis_ways}\t", end='')
         print()
@@ -34,17 +34,19 @@ class pprint:
                 for ways in columns: # or sets -- x-way set-associative
                     print(cache[f"way_{ways}"]['data'][pages][f"{offsets:x}"], "\t",  end='')
             print()
-        print("}")
+        print("}\n")
 
     def mem(memory, name):
-        print(f"\n{name}",'{') # \n = newline
-        rows = len(memory) >> 3 # x >> 3 == x/2**3
+        print(f"{name}",'{') # \n = newline
+        rows = len(memory) >> 3 # x >> 3 == x/2**3 == x/8
+        print("\t0x0  0x2  0x4  0x6  0x8  0xa  0xc  0xe\n") # Hardcoding seems like the easiest solution
         for r in range(rows):
             try:
-                print(f"{' '.join(list(memory.values())[r*8:(r+1)*8])}") # \f = form feed, \t = tab
+                print(f"0x{(r*16):0{rows.bit_length()}x}\t{' '.join(list(memory.values())[r*8:(r+1)*8])}") # \f = form feed, \t = tab
+
             except KeyError:
                 0
-        print('}')
+        print("}\n")
 
 #----[Replacement Algorithms]----#
 
@@ -86,7 +88,7 @@ xxxx|op-|format-------------
 
 
 
-class s16: # need to fins a way to incorporate the cycle cost of each instruction... eventually
+class s16: # I need to find a way to incorporate the cycle cost of each instruction... eventually
     # "i16..." -> 16-bit instruction / also fixes built-in function clashes
     def i16_ior(i_packet):
         a = i_packet["a"]
@@ -174,15 +176,15 @@ class s16: # need to fins a way to incorporate the cycle cost of each instructio
 # class control:
     """
     [Aim]: To decode, schedule, clock, interupts and monitor all "in-flight" operations
-    
+
     [Varables/Objects?]: count/program_counter, clock, instruction_decode, ...
     """
-    
+
 class generate_memory:
     """
     [Aim]: To generate the various memory structures in a dynamic way which allows
     a lot of testing and debugging.
-    
+
     [varables/Objects?]: capacity=x/direct_memory, capacity=x/ways=y/algorithm=z/cache_memory
     """
 
@@ -203,18 +205,17 @@ class generate_memory:
         cache = {} # cache decoding: way | tag | offset
         total_tag_count = int((byte_capacity >> 1) / self.page_size) # use self.page_size # Shifting right divides by powers of 2 (x>>1 == x/2**1)
         tags_per_way = int(total_tag_count / ways)
-        print('total_tag_count:', total_tag_count, '\ntags_per_way:', tags_per_way)
-        if ways < 2:
+        if ways < 2: # Other functions require, at least, a 'way_0' key to access the data inside a cache
             cache['way_0'] = {'tag': [], 'data': []}
-            for a in range(total_tag_count):
+            for a in range(total_tag_count): # Generate a initialised dictionary/page with offset(0 to f): 0000 (hex)
                 cache['way_0']['tag'].insert(0, '0000')
-                cache['way_0']['data'].insert(0, {f"{offset:0{self.page_size.bit_length()-4}x}": '0000' for offset in range(self.page_size)}) # Generate a initialised dictionary/page with offset(0 to f): 0000 (hex)
+                cache['way_0']['data'].insert(0, {f"{offset:0{self.page_size.bit_length()-4}x}": '0000' for offset in range(self.page_size)})
         else:
             for w in range(ways): # ways, as in, x-way set-associative
                 cache[f'way_{w:x}'] = {'tag': [], 'data': []}
-                for a in range(tags_per_way):
+                for a in range(tags_per_way): # Generate a initialised dictionary/page with offset(0 to f): 0000 (hex)
                     cache[f"way_{w:x}"]['tag'].insert(0, '0000')
-                    cache[f"way_{w:x}"]['data'].insert(0, {f"{offset:0{self.page_size.bit_length()-4}x}": '0000' for offset in range(self.page_size)}) # Generate a initialised dictionary/page with offset(0 to f): 0000 (hex)
+                    cache[f"way_{w:x}"]['data'].insert(0, {f"{offset:0{self.page_size.bit_length()-4}x}": '0000' for offset in range(self.page_size)})
         return cache # cache['way_x']['tag'/'data']
 
 
@@ -227,40 +228,44 @@ class generate_memory:
 
     def reorder_buffer():
         0
-   
-    # Memory read/write functions seem unnecessary 
-    
-    # def read_memory(memory, address, data):
-    #     updated_memory = {}
-    #     return updated_memory
-    
-    # def write_memory(memory, address, data):
-    #     updated_memory = {}
-    #     return updated_memory
-    
-    def read_cache(cache, address, data):
+    def memory_buffer():
+        0
+
+class read: # Memory(simple dict look-up) read/write functions seem unnecessary but it should make the moce more readable
+
+    def memory(memory, address):
+        return memory[address]
+
+    def cache(cache, main_memory, address, data):
         # < split address into (set,tag) >
         # < search set >
         # entry = {'addr': address, 'data': data}
         # < if entry['addr'] in cache['way']: >
         # <     read cache['way']['address'] >
         # <     cache['replacement_algorithm'](cache, cache['way']. entry) # lru(cache, way, entry)
-            
-        updated_cache = {}
-        return updated_cache
-    
-    def write_cache(cache, address, data):
+
         updated_cache = {}
         return updated_cache
 
-# class interconnect: 
+class write:
+
+    def memory(memory, address, data):
+        temp_memory = memory
+        temp_memory[address] = data
+        return temp_memory
+
+    def cache(cache, address, data):
+
+        return updated_cache
+
+# class interconnect:
 # """
 # [Aim]: to allow communication between peripheral components connected to the CPU.
 
 # [Variables]: bus_address, communication_type?
 
 # """
-    
+
 # # class execute:
 # """
 # [Aim]: stores all instructions and sub operations that are mapped to functions. The functions
@@ -268,7 +273,7 @@ class generate_memory:
 
 # [Objects] arithmetic_unit, control_unit, memory_buffer
 # """
-    
+
 # # class packet:
 # """
 # [Aim]: To hold data, flags, adresses, etc which has been decoded from a given instruction. This packet will live until there are
@@ -280,7 +285,7 @@ class generate_memory:
 # Maximum packet side
 
 # """
-    
+
 
 
 #----Testing----#
@@ -289,9 +294,8 @@ gp_registers = mem.memory(64)
 l1_data_cache = mem.cache(64, 2, lru)
 
 gp_registers['00'] = 'ffff'
-
+gp_registers = write.memory(gp_registers, '0f', 'f0f0')
 
 pprint.mem(gp_registers, 'GPR')
-pprint.cache_horiz(l1_data_cache, 'L1 Cache')
-pprint.cache_vert(l1_data_cache, 'L1 Cache')
-
+# pprint.cache_horiz(l1_data_cache, 'L1 Cache')
+# pprint.cache_vert(l1_data_cache, 'L1 Cache')
