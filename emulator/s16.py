@@ -39,10 +39,11 @@ class pprint:
     def mem(memory, name):
         print(f"{name}",'{') # \n = newline
         rows = len(memory) >> 3 # x >> 3 == x/2**3 == x/8
-        print("\t0x0  0x2  0x4  0x6  0x8  0xa  0xc  0xe\n") # Hardcoding seems like the easiest solution
+        rows_bitlen = rows.bit_length()
+        print(f"{' '*rows_bitlen}\t0x0  0x2  0x4  0x6  0x8  0xa  0xc  0xe\n") # Hardcoded for simplicity -- Added {' '*rows_bitlen} incase of large caches messing stuff up
         for r in range(rows):
             try:
-                print(f"0x{(r*16):0{rows.bit_length()}x}\t{' '.join(list(memory.values())[r*8:(r+1)*8])}") # \f = form feed, \t = tab
+                print(f"0x{(r*16):0{rows_bitlen}x}\t{' '.join(list(memory.values())[r*8:(r+1)*8])}") # \f = form feed, \t = tab
 
             except KeyError:
                 0
@@ -250,12 +251,10 @@ class read: # Memory(simple dict look-up) read/write functions seem unnecessary 
 class write:
 
     def memory(memory, address, data):
-        temp_memory = memory
-        temp_memory[address] = data
-        return temp_memory
+        memory[address] = data # Modifies 'memory' in situ, thus no need to return a value
 
-    def cache(cache, address, data):
-
+    def cache(cache, hex_address, data):
+        binary_address = bin(hex_address)
         return updated_cache
 
 # class interconnect:
@@ -293,9 +292,10 @@ mem = generate_memory(16) # page_size=16
 gp_registers = mem.memory(64)
 l1_data_cache = mem.cache(64, 2, lru)
 
-gp_registers['00'] = 'ffff'
-gp_registers = write.memory(gp_registers, '0f', 'f0f0')
+write.memory(gp_registers, '00', 'ffff')
+write.memory(gp_registers, '0f', 'f0f0')
+print(read.memory(gp_registers, '0f'))
 
 pprint.mem(gp_registers, 'GPR')
-# pprint.cache_horiz(l1_data_cache, 'L1 Cache')
+pprint.cache_horiz(l1_data_cache, 'L1 Cache')
 # pprint.cache_vert(l1_data_cache, 'L1 Cache')
