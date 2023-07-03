@@ -12,38 +12,38 @@
 class pprint:
 
     def cache_horiz(cache, name):
-        tag_count = 0
-        print(f"{name}",'{')
+        print(f"{name}","{\n\n","\t\t\b\b0x0  0x1  0x2  0x3  0x4  0x5  0x6  0x7  0x8  0x9  0xa  0xb  0xc  0xd  0xe  0xf\n") # Hardcoded for simplicity
         for way in cache:
-            print(way, end='')
+            print(way.replace('ay_', ''), end='')
             for t in range(len(cache[way]['tag'])):
                 print(f"\t{cache[way]['tag'][t]} [{' '.join(list(cache[way]['data'][t].values()))}]")
         print("}\n")
 
     def cache_vert(cache, name):
         columns = range(len(cache))
-        print(f"{name}",'{') # Title
+        print(f"{name}","{\n") # Title
         for x_axis_ways in columns: # Display "ways", or sets, along the x axis in a table format
-            print(f"way{x_axis_ways}\t", end='')
+            print(f"\tw{x_axis_ways}", end='')
         print()
         for x_axis_tags in cache:  # Display "tags", along the x axis in a table format
-            print(f"{cache[x_axis_tags]['tag'][0]}\t", end='')
+            print(f"\t{cache[x_axis_tags]['tag'][0]}", end='')
         print("\n")
-        for offsets in range(len(cache['way_0']['data'][0])): # A page's offset is the fine-grain address to access a given word(s16 -> 16-bit -> 2 bytes)
+        for offset, data in enumerate(cache['way_0']['data'][0]): # A page's offset is the fine-grain address to access a given word(s16 -> 16-bit -> 2 bytes)
+            print(hex(offset),"\t", end='')
             for pages in range(len(cache['way_0']['data'])): # Pages/blocks/cachelines are blocks of data which increaces the efficientcy of data movement
                 for ways in columns: # or sets -- x-way set-associative
-                    print(cache[f"way_{ways}"]['data'][pages][f"{offsets:x}"], "\t",  end='')
+                    print(cache[f"way_{ways}"]['data'][pages][f"{offset:x}"],"\t",end='')
             print()
         print("}\n")
 
     def mem(memory, name):
-        print(f"{name}",'{') # \n = newline
+        print(f"{name}","{\n") # \n = newline
         rows = len(memory) >> 3 # x >> 3 == x/2**3 == x/8
         rows_bitlen = rows.bit_length()
         print(f"{' '*rows_bitlen}\t0x0  0x2  0x4  0x6  0x8  0xa  0xc  0xe\n") # Hardcoded for simplicity -- Added {' '*rows_bitlen} incase of large caches messing stuff up
         for r in range(rows):
             try:
-                print(f"0x{(r*16):0{rows_bitlen}x}\t{' '.join(list(memory.values())[r*8:(r+1)*8])}") # \f = form feed, \t = tab
+                print(f"0x{(r*16):0{rows_bitlen >> 1}x}\t{' '.join(list(memory.values())[r*8:(r+1)*8])}") # \f = form feed, \t = tab
 
             except KeyError:
                 0
@@ -57,7 +57,10 @@ def lru(cache, way, entry): # Least Recently Used
     target_way['data'].insert(0, target_way['data'].pop(entry['data'])) # Remove entry_data[-1] and insert into position [0], i.e. remove least recent and move into most recent
     return target_way
 
-def lfu(cache, way, entry):
+def lfu(cache, way, entry): # least frequently used
+    return 0
+
+def plru(cache, way, entry): # pseudo-lru
     return 0
 
 #----[]----#
@@ -96,7 +99,7 @@ class s16: # I need to find a way to incorporate the cycle cost of each instruct
         b = i_packet["b"]
         out_i_packet = {}
         out_i_packet["c"] = a | b
-        # copy <packet>, except from ["a"] and ["b"], to <outbound_packet> using hatever func to merge dictionaries
+        # copy <packet>, except from ["a"] and ["b"], to <outbound_packet> using whatever func to merge dictionaries
         return out_i_packet
 
 
@@ -237,7 +240,7 @@ class read: # Memory(simple dict look-up) read/write functions seem unnecessary 
     def memory(memory, address):
         return memory[address]
 
-    def cache(cache, main_memory, address, data):
+    def cache(cache, main_memory, address, data): # upon a "miss", data must be reteived from main memory
         # < split address into (set,tag) >
         # < search set >
         # entry = {'addr': address, 'data': data}
@@ -253,8 +256,13 @@ class write:
     def memory(memory, address, data):
         memory[address] = data # Modifies 'memory' in situ, thus no need to return a value
 
-    def cache(cache, hex_address, data):
-        binary_address = bin(hex_address)
+    def cache(cache, main_memory, hex_address, data): # upon a "miss", data must be reteived from main memory
+        ways = len(cache)
+        ways_log2 = ways.bit_length()
+        offset = len(cache['way_0']['data'][0]) # All caches are generated with at least one way, or set: 'way_0'
+        offset_log2 = offset.bit_length()
+        binary_address = bin(int(hex_address, 16))[ways_log2:-offset_log2]
+        print('binary_address: ', binary_address)
         return updated_cache
 
 # class interconnect:
@@ -291,11 +299,16 @@ class write:
 mem = generate_memory(16) # page_size=16
 gp_registers = mem.memory(64)
 l1_data_cache = mem.cache(64, 2, lru)
+main_mem = mem.memory(256)
 
-write.memory(gp_registers, '00', 'ffff')
-write.memory(gp_registers, '0f', 'f0f0')
-print(read.memory(gp_registers, '0f'))
-
+write.memory(gp_registers, '0000', 'ffff')
+write.memory(gp_registers, '000f', 'f0f0')
+write.memory(main_mem, '000e', '0fe0')
+# print(read.memory(gp_registers, '0f'))
+print(main_mem)
 pprint.mem(gp_registers, 'GPR')
-pprint.cache_horiz(l1_data_cache, 'L1 Cache')
+pprint.mem(main_mem, 'RAM')
+# pprint.cache_horiz(l1_data_cache, 'L1 Cache')
 # pprint.cache_vert(l1_data_cache, 'L1 Cache')
+
+read.cache
