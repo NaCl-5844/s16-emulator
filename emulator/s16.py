@@ -1,25 +1,24 @@
 #!/usr/bin/env python
-# from pprint import pprint # Pretty Print -- may create own print functions
 # import math
 
 ##----[Note]----##
 
 # s16 = Simple 16
-# Page = Block of 32 Bytes = (16-bits*16)/8
+# Page = Block of 32 Bytes = (16-bits*16)/8 -- I'm allowing this to be modifiable
 
 #----[Custom Pretty Print class]----#
 
 class pprint:
 
     def cache_horiz(cache, name):
-        print(f"{name}","{\n\n","\t\t\b\b0x0  0x1  0x2  0x3  0x4  0x5  0x6  0x7  0x8  0x9  0xa  0xb  0xc  0xd  0xe  0xf\n") # Hardcoded for simplicity
+        print(f"{name}","{\n\n","\t\t\b\b0x0  0x1  0x2  0x3  0x4  0x5  0x6  0x7\n") # Hardcoded for simplicity
         for way in cache:
             print(way.replace('ay_', ''), end='')
             for t in range(len(cache[way]['tag'])):
                 print(f"\t{cache[way]['tag'][t]} [{' '.join(list(cache[way]['data'][t].values()))}]")
         print("}\n")
 
-    def cache_vert(cache, name):
+    def cache_vert(cache, name): # Breaks when a given way has multiple pages
         columns = range(len(cache))
         print(f"{name}","{\n") # Title
         for x_axis_ways in columns: # Display "ways", or sets, along the x axis in a table format
@@ -184,7 +183,7 @@ class s16: # I need to find a way to incorporate the cycle cost of each instruct
     [Varables/Objects?]: count/program_counter, clock, instruction_decode, ...
     """
 
-class generate_memory:
+class Generate:
     """
     [Aim]: To generate the various memory structures in a dynamic way which allows
     a lot of testing and debugging.
@@ -194,40 +193,38 @@ class generate_memory:
 
     # call variables
 
-    def __init__(self, page_size):
-        self.page_size = page_size # I like to call cachelines pages >:D
+    def __init__(self, page_size): # I like to call cachelines pages >:D
+        self.PAGE_SIZE = page_size >> 1 # 16 Bytes >> 2 -> 8*16-bit Words
 
-    def cache(self, byte_capacity, ways, replacement_algorithm):
-        """
-        x-way set-associative describes how the replacement algorithm is split across all entries of the cache.
-        -- fully associative means the algorithm would act on all entries as a single set.
-        -- 2-way set-associative means if one half is accessed and an entry is replaced, due to the 2-way addressing the other half would not be effected.
-        -- 4-way ... etc, etc.
-        The pros and cons of speed and complexity decide the specific type of a replacment algorithm.
-        [E.g. For # of ways: LRU is simple and fast for low # of ways, Random Replacement(RR) is trivial and combined algorithms, like ARC, are slower but more efficient]
-        """
+    def cache(self, byte_capacity, ways, replacement_algorithm): # https://en.wikipedia.org/wiki/Cache_placement_policies#Set-associative_cache
         cache = {} # cache decoding: way | tag | offset
-        total_tag_count = int((byte_capacity >> 1) / self.page_size) # use self.page_size # Shifting right divides by powers of 2 (x>>1 == x/2**1)
+        PAGE_CAPACITY = self.PAGE_SIZE
+        total_tag_count = int((byte_capacity >> 1) / PAGE_CAPACITY) # use PAGE_CAPACITY # Shifting right divides by powers of 2 (x>>1 == x/2**1)
         tags_per_way = int(total_tag_count / ways)
         if ways < 2: # Other functions require, at least, a 'way_0' key to access the data inside a cache
             cache['way_0'] = {'tag': [], 'data': []}
             for a in range(total_tag_count): # Generate a initialised dictionary/page with offset(0 to f): 0000 (hex)
                 cache['way_0']['tag'].insert(0, '0000')
-                cache['way_0']['data'].insert(0, {f"{offset:0{self.page_size.bit_length()-4}x}": '0000' for offset in range(self.page_size)})
+                cache['way_0']['data'].insert(0, {f"{offset:0{PAGE_CAPACITY.bit_length()-4}x}": '0000' for offset in range(PAGE_CAPACITY)})
+                # {offset:0{PAGE_CAPACITY.bit_length()-4}x} converts the int -> hex
+                # Then, by using bit_length()[~log2] of <PAGE_CAPACITY> the correct bitlength for <offset> can be chosen
         else:
             for w in range(ways): # ways, as in, x-way set-associative
                 cache[f'way_{w:x}'] = {'tag': [], 'data': []}
                 for a in range(tags_per_way): # Generate a initialised dictionary/page with offset(0 to f): 0000 (hex)
                     cache[f"way_{w:x}"]['tag'].insert(0, '0000')
-                    cache[f"way_{w:x}"]['data'].insert(0, {f"{offset:0{self.page_size.bit_length()-4}x}": '0000' for offset in range(self.page_size)})
-        return cache # cache['way_x']['tag'/'data']
-
+                    cache[f"way_{w:x}"]['data'].insert(0, {f"{offset:0{PAGE_CAPACITY.bit_length()-4}x}": '0000' for offset in range(PAGE_CAPACITY)})
+        return cache # cache['way_x']['tag'/'data']s
 
     def memory(self, byte_capacity):
-        address_count = byte_capacity >> 1
+        address_count = byte_capacity
+        PAGE_CAPACITY = self.PAGE_SIZE
+        pages = int(address_count / PAGE_CAPACITY)
         memory = {}
-        for a in range(address_count): # building the memory
-            memory[f"{a:0{address_count.bit_length()-4}x}"] = '0000' # Hex formatting -- address_count.bit_length()-4 == log2(x)-4
+        for p in range(pages): # building the memory
+            memory[f"page_{p}"] = {}
+            for offset in range(PAGE_CAPACITY):
+                memory[f"page_{p}"][f"{offset:0{pages.bit_length()-4}x}"] = '0000' # Hex formatting -- pages.bit_length()-4 == log2(x)-4
         return memory
 
     def reorder_buffer():
@@ -253,7 +250,7 @@ class read: # Memory(simple dict look-up) read/write functions seem unnecessary 
 
 class write:
 
-    def memory(memory, address, data):
+    def memory(memory, address, data): # This is so wrong, I need to slap myself. Memory should
         memory[address] = data # Modifies 'memory' in situ, thus no need to return a value
 
     def cache(cache, main_memory, hex_address, data): # upon a "miss", data must be reteived from main memory
@@ -296,19 +293,20 @@ class write:
 
 
 #----Testing----#
-mem = generate_memory(16) # page_size=16
-gp_registers = mem.memory(64)
-l1_data_cache = mem.cache(64, 2, lru)
-main_mem = mem.memory(256)
+gen_mem = Generate(16) # page_size=16
+gp_registers = gen_mem.memory(64)
+l1_data_cache = gen_mem.cache(64, 2, lru)
+main_mem = gen_mem.memory(256)
 
 write.memory(gp_registers, '0000', 'ffff')
 write.memory(gp_registers, '000f', 'f0f0')
 write.memory(main_mem, '000e', '0fe0')
-# print(read.memory(gp_registers, '0f'))
+# print(read.memory(gp_registers, '000f'))
+print(gp_registers)
 print(main_mem)
-pprint.mem(gp_registers, 'GPR')
-pprint.mem(main_mem, 'RAM')
-# pprint.cache_horiz(l1_data_cache, 'L1 Cache')
-# pprint.cache_vert(l1_data_cache, 'L1 Cache')
+# pprint.mem(gp_registers, 'GPR')
+# pprint.mem(main_mem, 'RAM')
+pprint.cache_horiz(l1_data_cache, 'L1 Cache')
+# pprint.cache_vert(l1_data_cache, 'L1 Cache') # Needs work >_>
 
 read.cache
