@@ -20,6 +20,16 @@ class CacheCapacityError(ValueError):
 
 class pprint: # May reverse printing order, for now I'm happy with just displaying addresses
 
+    def memory(memory, name):
+        print(f"{name}","{\n\n","\t0x0  0x2  0x4  0x6  0x8  0xa  0xc  0xe\n") # Hardcoded for simplicity
+        rows_per_page = len(memory['page_0']) % 8
+        if rows_per_page <= 1:
+            for page in memory:
+                print(f"{page.replace('age_', ':')}\t{' '.join(list(memory[page].values()))}")
+        else:
+            print('Page sizes >8 are yet to be implemented')
+        print("}\n")
+
     def cache_horiz(cache, name):
         print(f"{name}","{\n\n","\ttag\t\b\b\b0x0  0x2  0x4  0x6  0x8  0xa  0xc  0xe\n") # Hardcoded for simplicity
         for way in cache:
@@ -45,16 +55,6 @@ class pprint: # May reverse printing order, for now I'm happy with just displayi
     #         print()
     #     print("}\n")
 
-
-    def memory(memory, name):
-        print(f"{name}","{\n\n","\t0x0  0x2  0x4  0x6  0x8  0xa  0xc  0xe\n") # Hardcoded for simplicity
-        rows_per_page = len(memory['page_0']) % 8
-        if rows_per_page <= 1:
-            for page in memory:
-                print(f"{page.replace('age_', ':')}\t{' '.join(list(memory[page].values()))}")
-        else:
-            print('Page sizes >8 are yet to be implemented')
-        print("}\n")
 
 
 #----[Replacement Algorithms]----#
@@ -94,25 +94,26 @@ class Generate:
     def __init__(self, page_size): # Size in bytes
         self.PAGE_SIZE = page_size # I like to call cachelines pages >:D
 
+    # I need to implement a dirty bit. >_>
     def cache(self, byte_capacity, ways, replacement_algorithm): # https://en.wikipedia.org/wiki/Cache_placement_policies#Set-associative_cache
         cache = {} # cache decoding: way | tag | offset
         PAGE_SIZE = self.PAGE_SIZE
         total_tag_count = int(byte_capacity / PAGE_SIZE) # minimum byte_capacity == ways*PAGE_SIZE
         tags_per_way = int(total_tag_count / ways)
-        # print('ttc: ',total_tag_count, 'tpw: ', tags_per_way)
+        # print('ttc: ',total_tag_count, 'tpw: ', tags_per_way) # [ debug ]
         if tags_per_way == 0:
             raise CacheCapacityError(f"Insufficient <byte_capacity> for the number of <ways>\nMinimum <byte_capacity> == ways*PAGE_SIZE = {ways*PAGE_SIZE}")
         if ways < 2: # Other functions require, at least, a 'way_0' key to access the data inside a cache
             cache['way_0'] = {'tag': [], 'data': []}
             for a in range(tags_per_way): # Generate a initialised dictionary/page with offset(0 to f): 0000 (hex)
                 cache['way_0']['tag'].insert(0, '0000')
-                cache['way_0']['data'].insert(0, {f"{offset:0{PAGE_SIZE.bit_length()-4}x}": '0000' for offset in range(PAGE_SIZE>>1)}) # {offset... ~ int -> hex. bit_length() ~ log2
+                cache['way_0']['data'].insert(0, {f"{offset<<1:0{PAGE_SIZE.bit_length()-4}x}": '0000' for offset in range(PAGE_SIZE>>1)}) # {offset... ~ int -> hex. bit_length() ~ log2
         else:
             for w in range(ways): # ways, as in, x-way set-associative
                 cache[f'way_{w:x}'] = {'tag': [], 'data': []}
                 for a in range(tags_per_way): # Generate a initialised dictionary/page with offset(0 to f): 0000 (hex)
                     cache[f"way_{w:x}"]['tag'].insert(0, '0000')
-                    cache[f"way_{w:x}"]['data'].insert(0, {f"{offset:0{PAGE_SIZE.bit_length()-4}x}": '0000' for offset in range(PAGE_SIZE>>1)}) # {offset... ~ int -> hex. bit_length() ~ log2
+                    cache[f"way_{w:x}"]['data'].insert(0, {f"{offset<<1:0{PAGE_SIZE.bit_length()-4}x}": '0000' for offset in range(PAGE_SIZE>>1)}) # {offset... ~ int -> hex. bit_length() ~ log2
         return cache # cache['way_x']['tag'/'data']s
 
     def memory(self, byte_capacity):
@@ -122,7 +123,7 @@ class Generate:
         for p in range(pages): # building the memory
             memory[f"page_{p:0x}"] = {}
             for offset in range(PAGE_SIZE >> 1): # Offset -> Address of data within a page -- page[int(x)] = y_data
-                memory[f"page_{p:0x}"][f"{offset:0x}"] = '0000' # Hex formatting -- pages.bit_length()-4 == log2(x)-4
+                memory[f"page_{p:0x}"][f"{offset<<1:0x}"] = '0000' # Hex formatting -- pages.bit_length()-4 == log2(x)-4
         return memory
 
     def reorder_buffer():
@@ -141,19 +142,33 @@ class read: # Need to adjust the decoding to account for 16-bit words. CUrrently
         bin_address = f"{int(address, 16):0{16}b}" # convert address into binary -- Hardcoded 16-bit
         offset = int(bin_address[15-(offset_bits):15], 2) # Extracting the upper most bits of the address
         page = int(bin_address[0:-(offset_bits+1)], 2) # The remaining bits address the page
-        # print('\b, offset_bits: ' ,offset_bits,'bin_address: ',bin_address) # debugging
-        # print('page: ', page,'offset: ', offset) # debugging
+        # print('\b, offset_bits: ' ,offset_bits,'bin_address: ',bin_address)   # [ debug ]
+        # print('page: ', page,'offset: ', offset)                              # [ debug ]
         return memory[f"page_{page:0x}"][f"{offset:0x}"]
 
-    def cache(cache, main_memory, address, data): # upon a "miss", data must be reteived from main memory
+    def cache(cache, main_memory, address): # upon a "miss", data must be reteived from main memory
         # < split address into (set,tag) >
         # < search set >
         # entry = {'addr': address, 'data': data}
         # < if entry['addr'] in cache['way']: >
         # <     read cache['way']['address'] >
         # <     cache['replacement_algorithm'](cache, cache['way']. entry) # lru(cache, way, entry)
+        way_bits = len(cache).bit_length()-1
+        offset_bits = len(cache['way_0']['data'][0]).bit_length() # All caches are generated with at least one way, or set: 'way_0'
+        bin_address = f"{int(address, 16):0{16}b}" # convert address into binary -- Hardcoded 16-bit
+        way = int(bin_address[way_bits:-(offset_bits+1)], 2)
+        tag = f"{int(bin_address[way_bits:-(offset_bits+1)], 2):0{4}x}"
+        offset = int(bin_address[15-(offset_bits):15], 2) # Extracting the upper most bits of the address
+        print('way_bits:',way_bits,'offset_bits:',offset_bits,'bin_address:',bin_address)   # [ debug ]
+        print('way:', way,'tag:', tag,'offset: ', offset)                                   # [ debug ]
 
-        updated_cache = {}
+
+        """
+        The function must be able to reruen data to main memory as well as the cache:
+
+        write.cache()  ::HIT?   -> read from existing_entry
+                        :MISS?  -> find old_entry to evict -> send old_entry to main_memory -> pull addressed_entry from main_memory to cache -> write to entry
+        """
 
 
 class write: # Need to adjust the decoding to account for 16-bit words. CUrrently I decode as if my word size = 8
@@ -163,17 +178,23 @@ class write: # Need to adjust the decoding to account for 16-bit words. CUrrentl
         bin_address = f"{int(address, 16):0{16}b}" # convert address into binary -- Hardcoded 16-bit
         offset = int(bin_address[15-(offset_bits):15], 2) # Extracting the upper most bits of the address
         page = int(bin_address[0:-(offset_bits+1)], 2) # The remaining bits address the page
-        # print('\b, offset_bits: ' ,offset_bits,'bin_address: ',bin_address) # debugging
-        # print('page: ', page,'offset: ', offset) # debugging
+        # print('\b, offset_bits: ' ,offset_bits,'bin_address: ',bin_address)   # [ debug ]
+        # print('page: ', page,'offset: ', offset)                              # [ debug ]
         memory[f"page_{page:0x}"][f"{offset:0x}"] = data
 
 
-    def cache(cache, main_memory, hex_address, data): # upon a "miss", data must be reteived from main memory
-        way_bits = len(cache).bit_length()
+    def cache(cache, main_memory, address, data): # upon a "miss", data must be reteived from main memory
+        way_bits = len(cache).bit_length()-1
         offset_bits = len(cache['way_0']['data'][0]).bit_length() # All caches are generated with at least one way, or set: 'way_0'
-        binary_address = bin(int(hex_address, 16))[way_bits:-offset_bits]
+        binary_address = bin(int(address, 16))[way_bits:-offset_bits]
         print('binary_address: ', binary_address)
 
+        """
+        The function must be able to reruen data to main memory as well as the cache:
+
+        write.cache()  ::HIT?   -> write to existing_entry
+                        :MISS?  -> find old_entry to evict -> send old_entry to main_memory -> pull addressed_entry from main_memory to cache -> write to entry
+        """
 
 # class interconnect:
 # """
@@ -208,25 +229,18 @@ class write: # Need to adjust the decoding to account for 16-bit words. CUrrentl
 #----Testing----#
 GenerateMemory = Generate(16) # page_size=16 Bytes -> 8*2 Byte words -> 2B = 16-bits
 gp_registers = GenerateMemory.memory(64)
-l1_data_cache = GenerateMemory.cache(8, 4, lru)
-main_mem = GenerateMemory.memory(1024)
+l1_data_cache = GenerateMemory.cache(256, 4, lru)
+main_mem = GenerateMemory.memory(512)
 
-
-print('---->', read.memory(gp_registers, '000e'))
-pprint.memory(gp_registers, 'GPR')
-write.memory(gp_registers, '000e', '0fe0')
-print('---->', read.memory(gp_registers, '000e'))
-pprint.memory(gp_registers, 'GPR')
-write.memory(gp_registers, '000a', '0fe1')
-print('---->', read.memory(gp_registers, '000a'))
-pprint.memory(gp_registers, 'GPR')
-# print(gp_registers)
+print(gp_registers)
 # print(main_mem)
-# print(l1_data_cache)
+print()
+print(l1_data_cache)
 # pprint.memory(gp_registers, 'GPR')
-# pprint.memory(main_mem, 'RAM')
-# pprint.cache_horiz(l1_data_cache, 'L1 Cache')
 # pprint.cache_vert(l1_data_cache, 'L1 Cache') # Needs work >_>
+# pprint.memory(main_mem, 'RAM')
+pprint.cache_horiz(l1_data_cache, 'L1 Cache')
+print(read.cache(l1_data_cache, main_mem, '000f'))
 
 
 
