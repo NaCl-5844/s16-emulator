@@ -63,7 +63,7 @@ def lru(cache, way, entry): # Least Recently Used
     target_way = cache[way]
     target_way['addr'].insert(0, target_way['addr'].pop(entry['addr'])) # Remove entry_address[-1] and insert into position [0], i.e. remove least recent and move into most recent
     target_way['data'].insert(0, target_way['data'].pop(entry['data'])) # Remove entry_data[-1] and insert into position [0], i.e. remove least recent and move into most recent
-    return target_way
+     target_way['dirty'].insert(0, target_way['dirty'].pop(entry['dirty']))
 
 def lfu(cache, way, entry): # least frequently used
     return 0
@@ -104,15 +104,17 @@ class Generate:
         if tags_per_way == 0:
             raise CacheCapacityError(f"Insufficient <byte_capacity> for the number of <ways>\nMinimum <byte_capacity> == ways*PAGE_SIZE = {ways*PAGE_SIZE}")
         if ways < 2: # Other functions require, at least, a 'way_0' key to access the data inside a cache
-            cache['way_0'] = {'tag': [], 'data': []}
+            cache['way_0'] = {'tag': [], 'dirty':[], 'data': []}
             for a in range(tags_per_way): # Generate a initialised dictionary/page with offset(0 to f): 0000 (hex)
-                cache['way_0']['tag'].insert(0, '0000')
+                cache['way_0']['tag'].insert(0, '0000') # Need to implement variable tag size
+                cache['way_0']['dirty'].insert(0, '0') # https://en.wikipedia.org/wiki/Dirty_bit
                 cache['way_0']['data'].insert(0, {f"{offset<<1:0{PAGE_SIZE.bit_length()-4}x}": '0000' for offset in range(PAGE_SIZE>>1)}) # {offset... ~ int -> hex. bit_length() ~ log2
         else:
             for w in range(ways): # ways, as in, x-way set-associative
-                cache[f'way_{w:x}'] = {'tag': [], 'data': []}
+                cache[f'way_{w:x}'] = {'tag': [], 'dirty':[], 'data': []}
                 for a in range(tags_per_way): # Generate a initialised dictionary/page with offset(0 to f): 0000 (hex)
-                    cache[f"way_{w:x}"]['tag'].insert(0, '0000')
+                    cache[f"way_{w:x}"]['tag'].insert(0, '0000') # Need to implement variable tag size
+                    cache[f"way_{w:x}"]['dirty'].insert(0, '0') # https://en.wikipedia.org/wiki/Dirty_bit
                     cache[f"way_{w:x}"]['data'].insert(0, {f"{offset<<1:0{PAGE_SIZE.bit_length()-4}x}": '0000' for offset in range(PAGE_SIZE>>1)}) # {offset... ~ int -> hex. bit_length() ~ log2
         return cache # cache['way_x']['tag'/'data']s
 
@@ -164,7 +166,7 @@ class read: # Need to adjust the decoding to account for 16-bit words. CUrrently
 
 
         """
-        The function must be able to reruen data to main memory as well as the cache:
+        The function must be able to return data to main memory as well as the cache:
 
         write.cache()  ::HIT?   -> read from existing_entry
                         :MISS?  -> find old_entry to evict -> send old_entry to main_memory -> pull addressed_entry from main_memory to cache -> write to entry
@@ -190,7 +192,7 @@ class write: # Need to adjust the decoding to account for 16-bit words. CUrrentl
         print('binary_address: ', binary_address)
 
         """
-        The function must be able to reruen data to main memory as well as the cache:
+        The function must be able to return data to main memory as well as the cache:
 
         write.cache()  ::HIT?   -> write to existing_entry
                         :MISS?  -> find old_entry to evict -> send old_entry to main_memory -> pull addressed_entry from main_memory to cache -> write to entry
