@@ -1,10 +1,13 @@
 #!/usr/bin/env python
 # import math
 
-##----[Note]----##
+##----[Notes]----##
 
 # s16 = Simple 16
 # Page = Block of 32 Bytes = (16-bits*16)/8 -- I'm allowing this to be modifiable
+# Cache:
+#   - https://en.wikipedia.org/wiki/Cache_placement_policies#Set-associative_cache
+#   - https://www.geeksforgeeks.org/write-through-and-write-back-in-cache
 
 
 
@@ -61,9 +64,9 @@ class pprint: # May reverse printing order, for now I'm happy with just displayi
 
 def lru(cache, way, entry): # Least Recently Used
     target_way = cache[way]
-    target_way['addr'].insert(0, target_way['addr'].pop(entry['addr'])) # Remove entry_address[-1] and insert into position [0], i.e. remove least recent and move into most recent
+    target_way['tag'].insert(0, target_way['tag'].pop(entry['tag'])) # Remove entry_address[-1] and insert into position [0], i.e. remove least recent and move into most recent
+    target_way['dirty'].insert(0, target_way['dirty'].pop(entry['dirty']))
     target_way['data'].insert(0, target_way['data'].pop(entry['data'])) # Remove entry_data[-1] and insert into position [0], i.e. remove least recent and move into most recent
-     target_way['dirty'].insert(0, target_way['dirty'].pop(entry['dirty']))
 
 def lfu(cache, way, entry): # least frequently used
     return 0
@@ -107,14 +110,14 @@ class Generate:
             cache['way_0'] = {'tag': [], 'dirty':[], 'data': []}
             for a in range(tags_per_way): # Generate a initialised dictionary/page with offset(0 to f): 0000 (hex)
                 cache['way_0']['tag'].insert(0, '0000') # Need to implement variable tag size
-                cache['way_0']['dirty'].insert(0, '0') # https://en.wikipedia.org/wiki/Dirty_bit
+                cache['way_0']['dirty'].insert(0, 0) # https://en.wikipedia.org/wiki/Dirty_bit
                 cache['way_0']['data'].insert(0, {f"{offset<<1:0{PAGE_SIZE.bit_length()-4}x}": '0000' for offset in range(PAGE_SIZE>>1)}) # {offset... ~ int -> hex. bit_length() ~ log2
         else:
             for w in range(ways): # ways, as in, x-way set-associative
                 cache[f'way_{w:x}'] = {'tag': [], 'dirty':[], 'data': []}
                 for a in range(tags_per_way): # Generate a initialised dictionary/page with offset(0 to f): 0000 (hex)
                     cache[f"way_{w:x}"]['tag'].insert(0, '0000') # Need to implement variable tag size
-                    cache[f"way_{w:x}"]['dirty'].insert(0, '0') # https://en.wikipedia.org/wiki/Dirty_bit
+                    cache[f"way_{w:x}"]['dirty'].insert(0, 0) # https://en.wikipedia.org/wiki/Dirty_bit
                     cache[f"way_{w:x}"]['data'].insert(0, {f"{offset<<1:0{PAGE_SIZE.bit_length()-4}x}": '0000' for offset in range(PAGE_SIZE>>1)}) # {offset... ~ int -> hex. bit_length() ~ log2
         return cache # cache['way_x']['tag'/'data']s
 
@@ -149,21 +152,42 @@ class read: # Need to adjust the decoding to account for 16-bit words. CUrrently
         return memory[f"page_{page:0x}"][f"{offset:0x}"]
 
     def cache(cache, main_memory, address): # upon a "miss", data must be reteived from main memory
-        # < split address into (set,tag) >
-        # < search set >
-        # entry = {'addr': address, 'data': data}
-        # < if entry['addr'] in cache['way']: >
-        # <     read cache['way']['address'] >
-        # <     cache['replacement_algorithm'](cache, cache['way']. entry) # lru(cache, way, entry)
+        """
+        HIT:
+        > IF ( address_tag in cache['address_way']['tag'] ) AND ( cache['address_way']['tag'].index(address_tag) == cache['address_way']['dirty'][cache['address_way']['tag'].index(address_tag)] )
+        """
+        # Splitting address -> tag|way|offset
         way_bits = len(cache).bit_length()-1
         offset_bits = len(cache['way_0']['data'][0]).bit_length() # All caches are generated with at least one way, or set: 'way_0'
         bin_address = f"{int(address, 16):0{16}b}" # convert address into binary -- Hardcoded 16-bit
         way = int(bin_address[way_bits:-(offset_bits+1)], 2)
+        way_key = f"way_{way:x}"
         tag = f"{int(bin_address[way_bits:-(offset_bits+1)], 2):0{4}x}"
         offset = int(bin_address[15-(offset_bits):15], 2) # Extracting the upper most bits of the address
         print('way_bits:',way_bits,'offset_bits:',offset_bits,'bin_address:',bin_address)   # [ debug ]
         print('way:', way,'tag:', tag,'offset: ', offset)                                   # [ debug ]
 
+        # Searcing for a read_hit
+
+        if tag in cache[way_key]['tag']: # wayyyyyyyyy more readable
+            tag_index = cache[way_key]['tag'].index(tag)
+            dirty_bit = cache[way_key]['dirty'][tag_index]
+            if dirty_bit == 0:
+                print('hit')
+                return cache[way_key]['data'][tag_index][f"{offset:0x}"]
+            else: # fetch newest version -- i_cache's may need to look inside d_cache for newest data
+                print('Finding last modified page')
+        else:
+            print('miss')
+
+        # Leaving this in commit v0.1.12 to show how awful this could've been:'
+
+        # if (tag in cache[f"way_{way:x}"]['tag']) and (cache[f"way_{way:x}"]['dirty'][cache[f"way_{way:x}"]['tag'].index(tag)] == 0): # Mmmm readable, not.
+        #     # (tag in cache) and (tag_dirty_bit == 0)
+        #     print('hit')
+        #     return cache[f"way_{way:x}"]['data'][cache[f"way_{way:x}"]['tag'].index(tag)]
+        # else:
+        #     print('miss')
 
         """
         The function must be able to return data to main memory as well as the cache:
@@ -242,7 +266,7 @@ print(l1_data_cache)
 # pprint.cache_vert(l1_data_cache, 'L1 Cache') # Needs work >_>
 # pprint.memory(main_mem, 'RAM')
 pprint.cache_horiz(l1_data_cache, 'L1 Cache')
-print(read.cache(l1_data_cache, main_mem, '000f'))
+print(read.cache(l1_data_cache, main_mem, '0000'))
 
 
 
