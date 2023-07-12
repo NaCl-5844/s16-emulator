@@ -4,5 +4,5 @@ Simple-16 is a simple ISA with a 16-bit data width. The aim for this repo is to 
 
 Main Goals:
   - Configurable main memory size and speed
-  - Configurable cache size and replacement algorithm
+  - Configurable cache size and replacement algorithms
   - Output a file containing changes in memory and functional units each cycle
