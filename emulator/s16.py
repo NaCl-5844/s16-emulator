@@ -35,16 +35,18 @@ class pprint: # May reverse printing order, for now I'm happy with just displayi
 
     def cache_horiz(cache, name):
         print(f"{name}","{\n\n","\ttag\t\b\b\b0x0  0x2  0x4  0x6  0x8  0xa  0xc  0xe\n") # Hardcoded for simplicity
+        replacement_algorithm = cache.pop('algorithm') # Not sure how else to get around this
         for way in cache:
             print(way.replace('ay_', ':'), end='')
             for t in range(len(cache[way]['tag'])):
                 print(f"\t{cache[way]['tag'][t]} {' '.join(list(cache[way]['data'][t].values()))}")
         print("}\n")
+        cache['algorithm'] = replacement_algorithm
 
     # Vertical cache pprint -- Needs work which requires write.cache/read.cache to be finalised
 
     # def cache_vert(cache, name): # Breaks when a given way has multiple pages
-    #     columns = range(len(cache))
+    #     columns = range((len(cache)-1))
     #     print(f"{name}","{\n") # Title
     #     for x_axis_ways in columns: # Display "ways", or sets, along the x axis in a table format
     #         print(f"\tw{x_axis_ways}", end='')
@@ -68,19 +70,19 @@ def lru(cache, way, new_entry): # Least Recently Used
     # Must return replaced_page to be written back to main_memory
     # replaced_address can be generated from: tag|current_way
     lru_dirty_bit = cache[way]['dirty'][-1]
-    print('\n#----[lru]----#\n','\ntarget_way:', cache[way])
-    print('\nIs lru page dirty?', bool(lru_dirty_bit))
-    print('\nNew Entry:', new_entry)
+    print('\n#----[lru]----#\nlru page dirty?', bool(lru_dirty_bit))    # [ debug ]
+    print('\ntarget_way:', cache[way],'\nNew Entry:', new_entry)        # [ debug ]
     cache[way]['tag'].insert(0, cache[way]['tag'].pop(-1)) # Remove [-1] and insert into position [0], i.e. remove least recent and move into most recent
     cache[way]['data'].insert(0, cache[way]['data'].pop(-1))
     cache[way]['dirty'].insert(0, cache[way]['dirty'].pop(-1))
-    if lru_dirty_bit == 0:
+    if lru_dirty_bit == 0: # clean
         cache[way]['tag'][0] = new_entry['tag']
         cache[way]['data'][0] = new_entry['data']
         cache[way]['dirty'][0] = new_entry['dirty']
-        return 'clean', {'tag': cache[way]['tag'][0],'data': cache[way]['data'][0]}
-    else:
-        return 'dirty'
+    else: # dirty
+        # only cases I can see is between l1_data_cache and a l1_instr_cache
+        # I'd also need to maintain a hierarchy of the cache levels somehow'
+        pass
 
 
 def lfu(cache, way, new_entry): # least frequently used
@@ -111,9 +113,11 @@ class Generate:
 
     def __init__(self, page_size): # Size in bytes
         self.PAGE_SIZE = page_size # I like to call cachelines pages >:D
+        self.memory_hierarchy = {}
 
     def cache(self, byte_capacity, ways, replacement_algorithm): # https://en.wikipedia.org/wiki/Cache_placement_policies#Set-associative_cache
         cache = {} # cache decoding: way | tag | offset
+        cache['algorithm'] = replacement_algorithm
         PAGE_SIZE = self.PAGE_SIZE
         total_tag_count = int(byte_capacity / PAGE_SIZE) # minimum byte_capacity == ways*PAGE_SIZE
         tags_per_way = int(total_tag_count / ways)
@@ -155,15 +159,14 @@ class Generate:
 
 #---[Input/Output]----#
 
-class read: # Need to adjust the decoding to account for 16-bit words. CUrrently I decode as if my word size =
+class read:
 
     def memory(memory, address):
         offset_bits = len(memory['page_0']).bit_length() # Any memory must have at least page_0
         bin_address = f"{int(address, 16):0{16}b}" # convert address into binary -- Hardcoded 16-bit
-        offset = int(bin_address[-(offset_bits):15], 2) # Extracting the upper most bits of the address
         page = int(bin_address[0:-(offset_bits)], 2) # The remaining bits address the page
-        print('\n#----[Read.memory]----#\n','offset_bits: ' ,offset_bits)       # [ debug ]
-        print('bin_address: ',bin_address,'page: ', page,'offset: ', offset)    # [ debug ]
+        print('\n#----[Read.memory]----#\n','offset_bits: ',offset_bits)    # [ debug ]
+        print('bin_address: ',bin_address,'page: ', page)                   # [ debug ]
         return memory[f"page_{page:0x}"] # [f"{offset<<1:0x}"]
 
     def cache(cache, main_memory, address): # upon a "miss", data must be reteived from main memory
@@ -174,13 +177,13 @@ class read: # Need to adjust the decoding to account for 16-bit words. CUrrently
         # Splitting address -> tag|way|offset
         bin_address = f"{int(address, 16):0{16}b}" # convert address into binary -- Hardcoded 16-bit
         offset_bits = len(cache['way_0']['data'][0]).bit_length() # All caches are generated with at least one way, or set: 'way_0'
-        offset = int(bin_address[-(offset_bits):15], 2) # Extracting the upper most bits of the address
-        way_bits = len(cache).bit_length()
+        offset = int(bin_address[-(offset_bits):15], 2) << 1 # Extracting the upper most bits of the address
+        way_bits = (len(cache)-1).bit_length()
         way = bin_address[-(way_bits+offset_bits-1):-offset_bits]
         way_key = f"way_{int(way, 2):x}"
         tag = f"{int(bin_address[way_bits:-(offset_bits+1)], 2):0{4}x}"
-        print('\n#----[Read.cache]----#\n','way_bits:',way_bits,'offset_bits:',offset_bits,)    # [ debug ]
-        print(f"bin_address: 0b{bin_address}, way: 0b{way}, tag: 0x{tag},offset: {offset}")     # [ debug ]
+        print('\n#----[Read.cache]----#\n','\bway_bits:',way_bits-1,'offset_bits:',offset_bits,)    # [ debug ]
+        print(f"bin_address: 0b{bin_address}, way: 0b{way}, tag: 0x{tag} ,offset: {offset}")        # [ debug ]
 
         # Searcing for a read_hit
 
@@ -188,51 +191,44 @@ class read: # Need to adjust the decoding to account for 16-bit words. CUrrently
             tag_index = cache[way_key]['tag'].index(tag)
             dirty_bit = cache[way_key]['dirty'][tag_index]
             if dirty_bit == 0:
-                print('hit')
-                return 'hit', cache[way_key]['data'][tag_index][f"{offset:0x}"]
+                print('hit')                                                            # [ debug ]
+                return cache[way_key]['data'][tag_index][f"{offset:0x}"]
             else: # fetch newest version -- i_cache's may need to look inside d_cache for newest data
-                print('dirty hit... Finding last modified page')
+                print('dirty hit... Finding last modified page')                        # [ debug ]
                 # with just 1 level of caching, only direct accesses to main_memory will cause a page to become dirty
                 # This could possibly happen if a DMA(Direct Memory Access) is implemented. Unlikely, maybe in T16.
         else:
-            print('miss')
-            page = int(bin_address[0:-(offset_bits+1)], 2) # The remaining bits address the page
-            data = main_memory[f"page_{page:0x}"][f"{offset:0x}"]
-            # < write.cache >
-            return 'miss', data
+
+            page_address = int(bin_address[:-(offset_bits)], 2) # The remaining bits address the page
+            page = main_memory[f"page_{page_address:0x}"]
+            print('miss...retrieving page\npage_address:',page_address,',page:', page)  # [ debug ]
+            new_entry = {'tag': tag, 'dirty': 0, 'data': page} # collecting components which make up an entry
+            cache['algorithm'](cache, way_key, new_entry) # sending the entry to the replacement algorithm
+            tag_index = cache[way_key]['tag'].index(tag)
+            return cache[way_key]['data'][tag_index][f"{offset:0x}"]
 
 
-
-        """
-        The function must be able to return data to main memory as well as the cache:
-
-        write.cache()  ::HIT?   -> read from existing_entry
-                        :MISS?  -> find old_entry to evict -> send old_entry to main_memory -> pull addressed_entry from main_memory to cache -> write to entry
-        """
-
-
-class write: # Need to adjust the decoding to account for 16-bit words. CUrrently I decode as if my word size = 8
+class write: # write.<functions> modify by reference
 
     def memory(memory, address, entry):
         offset_bits = len(memory['page_0']).bit_length() # Any memory must have at least page_0
         bin_address = f"{int(address, 16):0{16}b}" # convert address into binary -- Hardcoded 16-bit
-        offset = int(bin_address[-(offset_bits):15], 2) # Extracting the upper most bits of the address
         page = int(bin_address[0:-(offset_bits)], 2) # The remaining bits address the page
-        print('\n#----[Write.memory]----#\n','offset_bits:',offset_bits,)   # [ debug ]
-        print('bin_address:',bin_address,'page:',page,'offset:',offset)     # [ debug ]
+        print('\n#----[Write.memory]----#\n','\boffset_bits:',offset_bits,) # [ debug ]
+        print('bin_address:',bin_address,'page:',page)                      # [ debug ]
         memory[f"page_{page:0x}"] = entry # [f"{offset<<1:0x}"] = data
 
 
     def cache(cache, main_memory, address, data): # upon a "miss", data must be reteived from main memory # Splitting address -> tag|way|offset
         bin_address = f"{int(address, 16):0{16}b}" # convert address into binary -- Hardcoded 16-bit
         offset_bits = len(cache['way_0']['data'][0]).bit_length() # All caches are generated with at least one way, or set: 'way_0'
-        offset = int(bin_address[-(offset_bits):15], 2) # Extracting the upper most bits of the address
-        way_bits = len(cache).bit_length()
+        offset = int(bin_address[-(offset_bits):15], 2) << 1 # Extracting the upper most bits of the address
+        way_bits = (len(cache)-1).bit_length()
         way = bin_address[-(way_bits+offset_bits-1):-offset_bits]
         way_key = f"way_{int(way, 2):x}"
         tag = f"{int(bin_address[way_bits:-(offset_bits+1)], 2):0{4}x}"
-        print('\n#----[Write.cache]----#\n','way_bits:',way_bits,'offset_bits:',offset_bits)    # [ debug ]
-        print(f"bin_address: 0b{bin_address},way: 0b{way}, tag: 0x{tag},offset: {offset}")      # [ debug ]
+        print('\n#----[Write.cache]----#\n','\bway_bits:',way_bits-1,'offset_bits:',offset_bits)    # [ debug ]
+        print(f"bin_address: 0b{bin_address}, way: 0b{way}, tag: 0x{tag},offset: {offset}")         # [ debug ]
 
         # Searcing for a read_hit
 
@@ -240,28 +236,21 @@ class write: # Need to adjust the decoding to account for 16-bit words. CUrrentl
             tag_index = cache[way_key]['tag'].index(tag)
             dirty_bit = cache[way_key]['dirty'][tag_index]
             if dirty_bit == 0:
-                print('hit')
+                print('hit')                                        # [ debug ]
                 cache[way_key]['data'][tag_index][f"{offset:0x}"] = data
-                return 'hit'
             else: # fetch newest version -- i_cache's may need to look inside d_cache for newest data
-                print('dirty hit... Finding last modified page')
+                print('dirty hit... Finding last modified page')    # [ debug ]
                 # with just 1 level of caching, only direct accesses to main_memory will cause a page to become dirty
                 # This could possibly happen if a DMA(Direct Memory Access) is implemented. Unlikely, maybe in T16.
         else:
-            print('miss')
             page_address = int(bin_address[0:-(offset_bits+1)], 2) # The remaining bits address the page
-            page = main_memory[f"page_{page_address:0x}"] # [f"{offset:0x}"]
+            page = main_memory[f"page_{page_address:0x}"]
+            print('miss...retrieving page\npage:', page)            # [ debug ]
             page[f"{offset:0x}"] = data # data written to the incoming page
             new_entry = {'tag': tag, 'dirty': 0, 'data': page} # collecting components which make up an entry
-            print(lru(cache, way_key, new_entry)) # sending the entry to the replacement algorythm
-            return 'miss'
+            cache['algorithm'](cache, way_key, new_entry) # sending the entry to the replacement algorithm
 
-        """
-        The function must be able to return data to main memory as well as the cache:
 
-        write.cache()  ::HIT?   -> write to existing_entry
-                        :MISS?  -> find old_entry to evict -> send old_entry to main_memory -> pull addressed_entry from main_memory to cache -> write to entry
-        """
 
 # class interconnect:
 # """
@@ -318,36 +307,22 @@ main_mem = GenerateMemory.memory(512)
 # Bonus point:
 # in retrospect write.memory was required to test and develop the write.cache function
 
-write.memory(main_mem, '0090', '0fe0')
-write.memory(main_mem, '0092', '0fe1')
-write.memory(main_mem, '0094', '0fe2')
+write.memory(main_mem, '0090', {'0': 'ffff', '2': '0000', '4': '0000', '6': '0000', '8': '0000', 'a': '0000', 'c': '0000', 'e': '0000'})
+write.memory(main_mem, '00a2', {'0': 'abcd', '2': 'ffff', '4': '0000', '6': '0000', '8': '0000', 'a': '0000', 'c': '0000', 'e': '0000'})
+write.memory(main_mem, '00b4', {'0': '0000', '2': '0000', '4': 'ffff', '6': '0000', '8': '0000', 'a': '0000', 'c': '0000', 'e': '0000'})
 #---------------------------------------------#
 
-pprint.memory(main_mem, 'RAM')
+# pprint.memory(main_mem, 'RAM')
 print(read.memory(main_mem, '0090'))
-print(l1_data_cache)
+print(read.memory(main_mem, '00a2'))
 pprint.cache_horiz(l1_data_cache, 'L1 Cache')
 print(read.cache(l1_data_cache, main_mem, '0090'))
-write.cache(l1_data_cache, main_mem, '0090', 'ffff')
-write.cache(l1_data_cache, main_mem, '0090', 'ffff')
+write.cache(l1_data_cache, main_mem, '0090', '0fe0')
+write.cache(l1_data_cache, main_mem, '0094', '0ca0')
+# pprint.memory(main_mem, 'RAM')
+print(read.cache(l1_data_cache, main_mem, '00a0'))
+print(read.cache(l1_data_cache, main_mem, '00a2'))
 pprint.cache_horiz(l1_data_cache, 'L1 Cache')
-print(read.cache(l1_data_cache, main_mem, '0090'))
-print(read.cache(l1_data_cache, main_mem, '0092'))
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
