@@ -1,8 +1,12 @@
 # s16-emulator
 
-Simple-16 is a simple ISA with a 16-bit data width. The aim for this repo is to design and test out ways to make a low level emulation of a CPU.
+s16 is a simple ISA, 16-bit and a project to learn how to make a low level CPU emulation.
 
 Main Goals:
   - Configurable main memory size and speed
   - Configurable cache size and replacement algorithms
   - Output a file containing changes in memory and functional units each cycle
+  - Take s16 assembly from a file -> assemble microcode -> place in emulator memory  
+
+Secondary Goals:
+  - Peripherals such as a simple screen and keyboard
