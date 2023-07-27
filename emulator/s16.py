@@ -10,7 +10,7 @@
 #   - https://www.geeksforgeeks.org/write-through-and-write-back-in-cache
 
 # BUG LIST:
-# read and write methods do not care if addresses are out-of-bounds
+#
 
 
 
@@ -108,10 +108,10 @@ class Generate:
     def memory(self, byte_capacity):
         PAGE_SIZE = self.PAGE_SIZE
         memory = {}
-        pages = int(byte_capacity / PAGE_SIZE) # Page -> [data, mapped, into, one, address]
+        pages = int(byte_capacity / PAGE_SIZE) # Page -> [a, group, of, data, mapped, to, one, address]
         for p in range(pages): # building the memory
             memory[f"page_{p:0x}"] = {}
-            for offset in range(PAGE_SIZE >> 1): # Offset -> Address of data within a page -- page[int(x)] = y_data
+            for offset in range(PAGE_SIZE >> 1): # Offset -> Address of data within a page -- page[int(x)] = data
                 memory[f"page_{p:0x}"][f"{offset<<1:0x}"] = '0000' # Hex formatting -- pages.bit_length()-4 == log2(x)-4
         return memory
 
@@ -124,15 +124,32 @@ class Generate:
 
 #---[Input/Output]----#
 
-class read:
+class Decode: # I'll use this class to make my read/write methods easier to read
+
+    @classmethod # basically a function without access to the object and its internals
+    def page(Decode, hex_address, offset_bits):
+        bin_address = f"{int(hex_address, 16):0{16}b}" # convert address into binary -- Hardcoded 16-bit
+        page = int(bin_address[0:-(offset_bits)], 2) # The remaining bits address the page
+        print('\n#----[Read.memory]----#\n','offset_bits: ',offset_bits)    # [ debug ]
+        print('bin_address: ',bin_address,'page:',page)                     # [ debug ]
+        page_key = f"page_{page:0x}"
+        return page_key
+
+
+    @classmethod # basically a function without access to the object and its internals
+    def way(Decode, hex_address, way_bits, offset_bits):
+        bin_address = f"{int(hex_address, 16):0{16}b}" # convert address into binary -- Hardcoded 16-bit
+        way = bin_address[-(way_bits+offset_bits-1):-offset_bits]
+        way_key = f"way_{int(way, 2):x}"
+        print('\n#----[Read.cache]----#\n','\bway_bits:',way_bits-1,'offset_bits:',offset_bits) # [ debug ]
+        print(f"bin_address: 0b{bin_address}, way: 0b{way}")                                    # [ debug ]
+        return bin_address, way_key
+
+class read(Decode):
 
     def memory(memory, address):
         offset_bits = len(memory['page_0']).bit_length() # Any memory must have at least page_0
-        bin_address = f"{int(address, 16):0{16}b}" # convert address into binary -- Hardcoded 16-bit
-        page = int(bin_address[0:-(offset_bits)], 2) # The remaining bits address the page
-        print('\n#----[Read.memory]----#\n','offset_bits: ',offset_bits)    # [ debug ]
-        print('bin_address: ',bin_address,'page: ', page)                   # [ debug ]
-        page_key = f"page_{page:0x}"
+        page_key = Decode.page(address, offset_bits)
         if page_key in memory:
             return memory[page_key]
         else:
@@ -141,15 +158,11 @@ class read:
             raise OutOfBoundAddress(f"Page 0x{page:0x} out-of-bound, page range = 0x{min_address} - 0x{max_address}")
 
     def cache(cache, main_memory, address): # upon a "miss", data must be reteived from main_memory
-        bin_address = f"{int(address, 16):0{16}b}" # convert address into binary -- Hardcoded 16-bit
-        offset_bits = len(cache['way_0']['data'][0]).bit_length() # All caches are generated with at least one way, or set: 'way_0'
-        offset = int(bin_address[-(offset_bits):15], 2) << 1 # Extracting the upper most bits of the address
         way_bits = (len(cache)-1).bit_length()
-        way = bin_address[-(way_bits+offset_bits-1):-offset_bits]
-        way_key = f"way_{int(way, 2):x}"
+        offset_bits = len(cache['way_0']['data'][0]).bit_length() # All caches are generated with at least one way, or set: 'way_0'
+        bin_address, way_key = Decode.way(address, way_bits, offset_bits) # Decodes address into TAG|WAY|OFFSET
         tag = f"{int(bin_address[way_bits:-(offset_bits+1)], 2):0{4}x}"
-        print('\n#----[Read.cache]----#\n','\bway_bits:',way_bits-1,'offset_bits:',offset_bits) # [ debug ]
-        print(f"bin_address: 0b{bin_address}, way: 0b{way}, tag: 0x{tag} ,offset: {offset}")    # [ debug ]
+        offset = int(bin_address[-(offset_bits):15], 2) << 1 # Extracting the upper most bits of the address
         if tag in cache[way_key]['tag']: # wayyyyyyyyy more readable
             tag_index = cache[way_key]['tag'].index(tag)
             dirty_bit = cache[way_key]['dirty'][tag_index]
@@ -159,9 +172,8 @@ class read:
             else: # fetch newest version -- i_cache's may need to look inside d_cache for newest data
                 print('dirty hit... Finding last modified page')                        # [ debug ]
                 # with just 1 level of caching, these ar the possible conflicts:
-                # Direct access to main_memory -- via peripherals?
-                # l1_instr page is modified inside l1_data -- the reverse is impossible
-
+                # 1) Direct access to main_memory -- via peripherals?
+                # 2) l1_instr page is modified inside l1_data -- the reverse is impossible
         else:
             page_address = int(bin_address[:-(offset_bits)], 2) # The remaining bits address the page
             page = main_memory[f"page_{page_address:0x}"]
@@ -172,17 +184,13 @@ class read:
             return cache[way_key]['data'][tag_index][f"{offset:0x}"]
 
 
-class write: # write.<functions> modify by reference
+class write(Decode): # write.<functions> modify by reference
 
     def memory(memory, address, entry):
         offset_bits = len(memory['page_0']).bit_length() # Any memory must have at least page_0
-        bin_address = f"{int(address, 16):0{16}b}" # convert address into binary -- Hardcoded 16-bit
-        page = int(bin_address[0:-(offset_bits)], 2) # The remaining bits address the page
-        print('\n#----[Write.memory]----#\n','\boffset_bits:',offset_bits,) # [ debug ]
-        print('bin_address:',bin_address,'page:',page)                      # [ debug ]
-        page_key = f"page_{page:0x}"
+        page_key = Decode.page(address, offset_bits)
         if page_key in memory:
-            memory[page_key] = entry # BUG - No checks if address is out of range
+            memory[page_key] = entry
         else:
             min_address = list(memory.keys())[0][5:]
             max_address = list(memory.keys())[-1][5:]
@@ -190,33 +198,33 @@ class write: # write.<functions> modify by reference
 
 
 
-    def cache(cache, main_memory, address, data): # upon a "miss", data must be reteived from main memory # Splitting address -> tag|way|offset
-        bin_address = f"{int(address, 16):0{16}b}" # convert address into binary -- Hardcoded 16-bit
-        offset_bits = len(cache['way_0']['data'][0]).bit_length() # All caches are generated with at least one way, or set: 'way_0'
-        offset = int(bin_address[-(offset_bits):15], 2) << 1 # Extracting the upper most bits of the address
+    def cache(cache, main_memory, address, data): # upon a "miss", data must be retrieved from main memory # Splitting address -> tag|way|offset
         way_bits = (len(cache)-1).bit_length()
-        way = bin_address[-(way_bits+offset_bits-1):-offset_bits]
-        way_key = f"way_{int(way, 2):x}"
+        offset_bits = len(cache['way_0']['data'][0]).bit_length() # All caches are generated with at least one way, or set: 'way_0'
+        bin_address, way_key = Decode.way(address, way_bits, offset_bits) # Decodes address into TAG|WAY|OFFSET
         tag = f"{int(bin_address[way_bits:-(offset_bits+1)], 2):0{4}x}"
-        print('\n#----[Write.cache]----#\n','\bway_bits:',way_bits-1,'offset_bits:',offset_bits) # [ debug ]
-        print(f"bin_address: 0b{bin_address}, way: 0b{way}, tag: 0x{tag},offset: {offset}")      # [ debug ]
-        if tag in cache[way_key]['tag']: # Searcing for a read_hit
+        if tag in cache[way_key]['tag']: # Testing for a read_hit
             tag_index = cache[way_key]['tag'].index(tag)
             dirty_bit = cache[way_key]['dirty'][tag_index]
-            if dirty_bit == 0:
+            if dirty_bit == 0: # Clean hit
                 print('hit')                                        # [ debug ]
+                offset = int(bin_address[-(offset_bits):15], 2) << 1 # Extracting the upper most bits of the address
                 cache[way_key]['data'][tag_index][f"{offset:0x}"] = data
-            else: # fetch newest version -- i_cache's may need to look inside d_cache for newest data
+            else: # fetch newest version -- i_cache's may need to look inside d_cache for newest data -- Dirty hit
                 print('dirty hit... Finding last modified page')    # [ debug ]
                 # with just 1 level of caching, only direct accesses to main_memory will cause a page to become dirty
                 # This could possibly happen if a DMA(Direct Memory Access) is implemented. Unlikely, maybe in T16.
-        else:
-            page_address = int(bin_address[0:-(offset_bits+1)], 2) # The remaining bits address the page
-            page = main_memory[f"page_{page_address:0x}"]
-            print('miss...retrieving page\npage:', page)            # [ debug ]
-            page[f"{offset:0x}"] = data # data written to the incoming page
-            new_entry = {'tag': tag, 'dirty': 0, 'data': page} # collecting components which make up an entry
-            cache['algorithm'](cache, way_key, new_entry) # sending the entry to the replacement algorithm
+        else: # Miss
+            page_key = Decode.page(address, offset_bits)
+            if page_key in memory: # If address is valid
+                page[f"{offset:0x}"] = data # data written to the incoming page
+                new_entry = {'tag': tag, 'dirty': 0, 'data': page} # collecting components which make up an entry
+                cache['algorithm'](cache, way_key, new_entry) # sending the entry to the replacement algorithm
+            else: # Address out-of-range -- Raise error
+                min_address = list(memory.keys())[0][5:]
+                max_address = list(memory.keys())[-1][5:]
+                raise OutOfBoundAddress(f"Page 0x{page:0x} out-of-bound, page range = 0x{min_address} - 0x{max_address}")
+
 
 
 # class control:
@@ -412,4 +420,3 @@ class s16: # I need to find a way to incorporate the cycle cost of each instruct
     # 	return 0
     # def i16_int(i_packet):
     # 	return 0
-
