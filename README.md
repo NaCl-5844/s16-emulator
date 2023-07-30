@@ -12,6 +12,6 @@ Secondary Goals:
   - cycle costs for every insruction, memory location**, cache accesses and stalls
   - Peripherals such as a simple screen and keyboard
 
-*Can be forked from [t16-assembler](https://github.com/NaCl-5844/t16-assembler) repo
+*Can be forked from my [t16-assembler](https://github.com/NaCl-5844/t16-assembler) repo
 
 **Access speeds are rarely equal over a given memory structure
