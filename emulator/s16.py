@@ -76,6 +76,27 @@ def plru(cache, way, new_entry): # pseudo-lru
 
 class Generate:
 
+    def load_config(config_name):
+        with open(config_name, "r") as s16_config:
+            config = {}
+            for line in s16_config:
+                clean_line = line.strip()
+                if  clean_line == '' or clean_line[0] == '[' or clean_line[0] == '#' or clean_line[0] == '\\':
+                    continue
+                else:
+                    key_value_pair = clean_line.split(' = ')
+                    try:
+                        config[key_value_pair[0]] = int(key_value_pair[1])
+                    except ValueError:
+                        try:
+                            config[key_value_pair[0]] = bool(key_value_pair[1])
+                        except ValueError:
+                            try:
+                                config[key_value_pair[0]] = key_value_pair[1]
+                            except:
+                                print(f"Something went VERY wrong. key_value_pair[1] = {key_value_pair[1]}")
+            print(config)
+
     def __init__(self, page_size): # Size in bytes
         self.PAGE_SIZE = page_size # I like to call cachelines pages >:D
         self.memory_hierarchy = {'l1_data': 0, 'l1_instr': 0, 'main_memory': 0}
@@ -119,6 +140,8 @@ class Generate:
         0
     def memory_buffer():
         0
+
+
 
 
 
@@ -196,8 +219,6 @@ class write(Decode): # write.<functions> modify by reference
             max_address = list(memory.keys())[-1][5:]
             raise OutOfBoundAddress(f"Page 0x{page:0x} out-of-bound, page range = 0x{min_address} - 0x{max_address}")
 
-
-
     def cache(cache, main_memory, address, data): # upon a "miss", data must be retrieved from main memory # Splitting address -> tag|way|offset
         way_bits = (len(cache)-1).bit_length()
         offset_bits = len(cache['way_0']['data'][0]).bit_length() # All caches are generated with at least one way, or set: 'way_0'
@@ -226,6 +247,9 @@ class write(Decode): # write.<functions> modify by reference
                 raise OutOfBoundAddress(f"Page 0x{page:0x} out-of-bound, page range = 0x{min_address} - 0x{max_address}")
 
 
+
+class Processor: # Class to collect generated components and allow them to interact easily
+    pass
 
 # class control:
     """
