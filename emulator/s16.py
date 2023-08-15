@@ -76,25 +76,22 @@ def plru(cache, way, new_entry): # pseudo-lru
 
 class Generate:
 
-    def load_config(config_name):
+    def load_config(config_name :str):
         with open(config_name, "r") as s16_config:
             config = {}
             for line in s16_config:
                 clean_line = line.strip()
-                if  clean_line == '' or clean_line[0] == '[' or clean_line[0] == '#' or clean_line[0] == '\\':
+                if clean_line == '' or clean_line[0] == '[' or clean_line[0] == '#' or clean_line[0] == '\\':
                     continue
                 else:
                     key_value_pair = clean_line.split(' = ')
                     try:
                         config[key_value_pair[0]] = int(key_value_pair[1])
                     except ValueError:
-                        try:
+                        if key_value_pair[1] == 'True' or key_value_pair[1] == 'False':
                             config[key_value_pair[0]] = bool(key_value_pair[1])
-                        except ValueError:
-                            try:
-                                config[key_value_pair[0]] = key_value_pair[1]
-                            except:
-                                print(f"Something went VERY wrong. key_value_pair[1] = {key_value_pair[1]}")
+                        else:
+                            config[key_value_pair[0]] = str(key_value_pair[1])
             print(config)
 
     def __init__(self, page_size): # Size in bytes
