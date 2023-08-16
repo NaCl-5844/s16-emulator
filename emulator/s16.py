@@ -76,22 +76,26 @@ def plru(cache, way, new_entry): # pseudo-lru
 
 class Generate:
 
+
     def load_config(config_name :str):
         with open(config_name, "r") as s16_config:
             config = {}
             for line in s16_config:
-                clean_line = line.strip()
-                if clean_line == '' or clean_line[0] == '[' or clean_line[0] == '#' or clean_line[0] == '\\':
+                clean_line = line.strip() # Clean up line
+                if clean_line == '' or clean_line[0] == '[' or clean_line[0] == '#' or clean_line[0] == '\\': # jump to start if...
+                    continue # '\\' -> \, is the first character of *newline* -> \n
+                key_value_pair = clean_line.split(' = ')
+                if len(key_value_pair) == 1: # jump to start if no value provided{len(key+value)==2}
                     continue
-                else:
-                    key_value_pair = clean_line.split(' = ')
-                    try:
-                        config[key_value_pair[0]] = int(key_value_pair[1])
-                    except ValueError:
-                        if key_value_pair[1] == 'True' or key_value_pair[1] == 'False':
-                            config[key_value_pair[0]] = bool(key_value_pair[1])
-                        else:
-                            config[key_value_pair[0]] = str(key_value_pair[1])
+                try:
+                    config[key_value_pair[0]] = int(key_value_pair[1])
+                except ValueError:
+                    if key_value_pair[1] == 'True':
+                        config[key_value_pair[0]] = True
+                    elif key_value_pair[1] == 'False':
+                        config[key_value_pair[0]] = False
+                    else:
+                        config[key_value_pair[0]] = str(key_value_pair[1]) # catch-all, sanitises any dubious entries
             print(config)
 
     def __init__(self, page_size): # Size in bytes
