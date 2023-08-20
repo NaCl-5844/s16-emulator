@@ -20,6 +20,8 @@ class CacheCapacityError(ValueError):
     pass
 class OutOfBoundAddress(KeyError):
     pass
+class ConfigError(ValueError):
+    pass
 
 #----[Custom Pretty Print class]----#
 
@@ -96,10 +98,17 @@ class Generate:
                         config[key_value_pair[0]] = False
                     else:
                         config[key_value_pair[0]] = str(key_value_pair[1]) # catch-all, sanitises any dubious entries
-            print(config)
+            return config
 
-    def __init__(self, page_size): # Size in bytes
-        self.PAGE_SIZE = page_size # I like to call cachelines pages >:D
+    def get_config(key :str):
+        value = config.get(key)
+        if value == None:
+            raise ConfigError
+        else:
+            return value
+
+    def __init__(self, config_name): # Size in bytes
+        self.config = load_config(config_name)
         self.memory_hierarchy = {'l1_data': 0, 'l1_instr': 0, 'main_memory': 0}
 
     def cache(self, byte_capacity, ways, replacement_algorithm): # https://en.wikipedia.org/wiki/Cache_placement_policies#Set-associative_cache
