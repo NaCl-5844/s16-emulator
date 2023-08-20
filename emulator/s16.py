@@ -78,8 +78,8 @@ def plru(cache, way, new_entry): # pseudo-lru
 
 class Generate:
 
-
-    def load_config(config_name :str):
+    @classmethod
+    def config(Generate, config_name :str):
         with open(config_name, "r") as s16_config:
             config = {}
             for line in s16_config:
@@ -100,7 +100,8 @@ class Generate:
                         config[key_value_pair[0]] = str(key_value_pair[1]) # catch-all, sanitises any dubious entries
             return config
 
-    def get_config(key :str):
+    @classmethod
+    def get_config(Generate, key :str):
         value = config.get(key)
         if value == None:
             raise ConfigError
@@ -108,8 +109,14 @@ class Generate:
             return value
 
     def __init__(self, config_name): # Size in bytes
-        self.config = load_config(config_name)
+        self.config = Generate.config(config_name)
         self.memory_hierarchy = {'l1_data': 0, 'l1_instr': 0, 'main_memory': 0}
+        PAGE_SIZE = self.config.get('PAGE_SIZE')
+        if PAGE_SIZE != 16:
+            raise ConfigError
+        else:
+            self.PAGE_SIZE = PAGE_SIZE
+
 
     def cache(self, byte_capacity, ways, replacement_algorithm): # https://en.wikipedia.org/wiki/Cache_placement_policies#Set-associative_cache
         cache = {} # cache decoding: way | tag | offset
@@ -299,7 +306,7 @@ class Processor: # Class to collect generated components and allow them to inter
 
 
 #----Testing----#
-GenerateMemory = Generate(16) # page_size=16 Bytes -> 8*2 Byte words -> 2B = 16-bits
+GenerateMemory = Generate('s16.conf') # page_size=16 Bytes -> 8*2 Byte words -> 2B = 16-bits
 gp_registers = GenerateMemory.memory(64)
 l1_data_cache = GenerateMemory.cache(128, 4, lru)
 main_mem = GenerateMemory.memory(512)
