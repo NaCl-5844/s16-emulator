@@ -119,18 +119,22 @@ class Generate:
 
         if self.config.get('L1_CACHE') == True:
             self.memory_hierarchy['L1'] = {
-                'Data': {'Size': self.config.get('L1_DATA_CACHE_SIZE'),
-                         'Ways': self.config.get('L1_DATA_CACHE_WAYS'),
-                         'Cost': self.config.get('L1_DATA_CACHE_COST')},
-                'Inst': {'Size': self.config.get('L1_INST_CACHE_SIZE'),
-                         'Ways': self.config.get('L1_INST_CACHE_WAYS'),
-                         'Cost': self.config.get('L1_INST_CACHE_COST')}}
+                'data': {'size': self.config.get('L1_DATA_CACHE_SIZE'),
+                         'ways': self.config.get('L1_DATA_CACHE_WAYS'),
+                         'cost': self.config.get('L1_DATA_CACHE_COST')},
+                'inst': {'size': self.config.get('L1_INST_CACHE_SIZE'),
+                         'ways': self.config.get('L1_INST_CACHE_WAYS'),
+                         'cost': self.config.get('L1_INST_CACHE_COST')}}
+            if None in self.memory_hierarchy['L1']['data'].values() or None in self.memory_hierarchy['L1']['inst'].values():
+                self.memory_hierarchy.pop('L1')
         if self.config.get('L2_CACHE') == True:
-
             self.memory_hierarchy['L2'] = {
-                'Data': {'Size': self.config.get('L2_DATA_CACHE_SIZE'),
-                         'Ways': self.config.get('L2_DATA_CACHE_WAYS'),
-                         'Cost': self.config.get('L2_DATA_CACHE_COST')}}
+                'data': {'size': self.config.get('L2_DATA_CACHE_SIZE'),
+                            'ways': self.config.get('L2_DATA_CACHE_WAYS'),
+                            'cost': self.config.get('L2_DATA_CACHE_COST')}}
+            if None in self.memory_hierarchy['L2']['data'].values():
+                self.memory_hierarchy.pop('L2')
+
         print(self.memory_hierarchy)
 
 
