@@ -110,12 +110,29 @@ class Generate:
 
     def __init__(self, config_name): # Size in bytes
         self.config = Generate.config(config_name)
-        self.memory_hierarchy = {'l1_data': 0, 'l1_instr': 0, 'main_memory': 0}
+        self.memory_hierarchy = {}
         PAGE_SIZE = self.config.get('PAGE_SIZE')
-        if PAGE_SIZE != 16:
+        if PAGE_SIZE != 16: # HARDCODED -- custom PAGE_SIZE is low priority
             raise ConfigError
         else:
             self.PAGE_SIZE = PAGE_SIZE
+
+        if self.config.get('L1_CACHE') == True:
+            self.memory_hierarchy['L1'] = {
+                'Data': {'Size': self.config.get('L1_DATA_CACHE_SIZE'),
+                         'Ways': self.config.get('L1_DATA_CACHE_WAYS'),
+                         'Cost': self.config.get('L1_DATA_CACHE_COST')},
+                'Inst': {'Size': self.config.get('L1_INST_CACHE_SIZE'),
+                         'Ways': self.config.get('L1_INST_CACHE_WAYS'),
+                         'Cost': self.config.get('L1_INST_CACHE_COST')}}
+        if self.config.get('L2_CACHE') == True:
+
+            self.memory_hierarchy['L2'] = {
+                'Data': {'Size': self.config.get('L2_DATA_CACHE_SIZE'),
+                         'Ways': self.config.get('L2_DATA_CACHE_WAYS'),
+                         'Cost': self.config.get('L2_DATA_CACHE_COST')}}
+        print(self.memory_hierarchy)
+
 
 
     def cache(self, byte_capacity, ways, replacement_algorithm): # https://en.wikipedia.org/wiki/Cache_placement_policies#Set-associative_cache
@@ -326,17 +343,17 @@ write.memory(main_mem, '0017', {'0': 'abcd', '2': 'ffff', '4': '0000', '6': '000
 write.memory(main_mem, '0004', {'0': '0000', '2': '0000', '4': 'ffff', '6': '0000', '8': '0000', 'a': '0000', 'c': '0000', 'e': '0000'})
 
 
-pprint.memory(main_mem, 'RAM')
-print(read.memory(main_mem, '0027'))
-print(read.memory(main_mem, '0017'))
-pprint.cache_horiz(l1_data_cache, 'L1 Cache')
-print(read.cache(l1_data_cache, main_mem, '0090'))
-write.cache(l1_data_cache, main_mem, '0017', '0fe0')
-write.cache(l1_data_cache, main_mem, '0004', '0ca0')
-pprint.memory(main_mem, 'RAM')
-print(read.cache(l1_data_cache, main_mem, '0027'))
-print(read.cache(l1_data_cache, main_mem, '0014'))
-pprint.cache_horiz(l1_data_cache, 'L1 Cache')
+# pprint.memory(main_mem, 'RAM')
+# print(read.memory(main_mem, '0027'))
+# print(read.memory(main_mem, '0017'))
+# pprint.cache_horiz(l1_data_cache, 'L1 Cache')
+# print(read.cache(l1_data_cache, main_mem, '0090'))
+# write.cache(l1_data_cache, main_mem, '0017', '0fe0')
+# write.cache(l1_data_cache, main_mem, '0004', '0ca0')
+# pprint.memory(main_mem, 'RAM')
+# print(read.cache(l1_data_cache, main_mem, '0027'))
+# print(read.cache(l1_data_cache, main_mem, '0014'))
+# pprint.cache_horiz(l1_data_cache, 'L1 Cache')
 
 
 
