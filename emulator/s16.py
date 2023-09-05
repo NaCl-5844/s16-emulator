@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 from customExceptions import *
-import generate
 import replacement
+import decode
 import tprint
 
 
@@ -21,7 +21,7 @@ import tprint
 
 class Generate:
 
-    @classmethod
+    @classmethod # basically a function without access to the object and its internals
     def config(Generate, config_name :str):
         with open(config_name, "r") as s16_config:
             config = {}
@@ -125,10 +125,10 @@ class Generate:
     def memory_buffer():
         pass
 
-class Decode: # I'll use this class to make my read/write methods easier to read
+class decode: # I'll use this class to make my read/write methods easier to read
 
     @classmethod # basically a function without access to the object and its internals
-    def page(Decode, hex_address, offset_bits):
+    def page(decode, hex_address, offset_bits):
         bin_address = f"{int(hex_address, 16):0{16}b}" # convert address into binary -- Hardcoded 16-bit
         page = int(bin_address[0:-(offset_bits)], 2) # The remaining bits address the page
         print('\n#----[Read.memory]----#\n','offset_bits: ',offset_bits)    # [ debug ]
@@ -138,7 +138,7 @@ class Decode: # I'll use this class to make my read/write methods easier to read
 
 
     @classmethod # basically a function without access to the object and its internals
-    def way(Decode, hex_address, way_bits, offset_bits):
+    def way(decode, hex_address, way_bits, offset_bits):
         bin_address = f"{int(hex_address, 16):0{16}b}" # convert address into binary -- Hardcoded 16-bit
         way = bin_address[-(way_bits+offset_bits-1):-offset_bits]
         way_key = f"way_{int(way, 2):x}"
@@ -146,11 +146,11 @@ class Decode: # I'll use this class to make my read/write methods easier to read
         print(f"bin_address: 0b{bin_address}, way: 0b{way}")                                    # [ debug ]
         return bin_address, way_key
 
-class read(Decode):
+class read:
 
     def memory(memory, address):
         offset_bits = len(memory['page_0']).bit_length() # Any memory must have at least page_0
-        page_key = Decode.page(address, offset_bits)
+        page_key = decode.page(address, offset_bits)
         if page_key in memory:
             return memory[page_key]
         else:
@@ -161,7 +161,7 @@ class read(Decode):
     def cache(cache, main_memory, address): # upon a "miss", data must be reteived from main_memory
         way_bits = (len(cache)-1).bit_length()
         offset_bits = len(cache['way_0']['data'][0]).bit_length() # All caches are generated with at least one way, or set: 'way_0'
-        bin_address, way_key = Decode.way(address, way_bits, offset_bits) # Decodes address into TAG|WAY|OFFSET
+        bin_address, way_key = decode.way(address, way_bits, offset_bits) # decodes address into TAG|WAY|OFFSET
         tag = f"{int(bin_address[way_bits:-(offset_bits+1)], 2):0{4}x}"
         offset = int(bin_address[-(offset_bits):15], 2) << 1 # Extracting the upper most bits of the address
         if tag in cache[way_key]['tag']: # wayyyyyyyyy more readable
@@ -185,11 +185,11 @@ class read(Decode):
             return cache[way_key]['data'][tag_index][f"{offset:0x}"]
 
 
-class write(Decode): # write.<functions> modify by reference
+class write: # write.<functions> modify by reference
 
     def memory(memory, address, entry):
         offset_bits = len(memory['page_0']).bit_length() # Any memory must have at least page_0
-        page_key = Decode.page(address, offset_bits)
+        page_key = decode.page(address, offset_bits)
         if page_key in memory:
             memory[page_key] = entry
         else:
@@ -200,7 +200,7 @@ class write(Decode): # write.<functions> modify by reference
     def cache(cache, main_memory, address, data): # upon a "miss", data must be retrieved from main memory # Splitting address -> tag|way|offset
         way_bits = (len(cache)-1).bit_length()
         offset_bits = len(cache['way_0']['data'][0]).bit_length() # All caches are generated with at least one way, or set: 'way_0'
-        bin_address, way_key = Decode.way(address, way_bits, offset_bits) # Decodes address into TAG|WAY|OFFSET
+        bin_address, way_key = decode.way(address, way_bits, offset_bits) # decodes address into TAG|WAY|OFFSET
         tag = f"{int(bin_address[way_bits:-(offset_bits+1)], 2):0{4}x}"
         if tag in cache[way_key]['tag']: # Testing for a read_hit
             tag_index = cache[way_key]['tag'].index(tag)
@@ -214,7 +214,7 @@ class write(Decode): # write.<functions> modify by reference
                 # with just 1 level of caching, only direct accesses to main_memory will cause a page to become dirty
                 # This could possibly happen if a DMA(Direct Memory Access) is implemented. Unlikely, maybe in T16.
         else: # Miss
-            page_key = Decode.page(address, offset_bits)
+            page_key = decode.page(address, offset_bits)
             if page_key in memory: # If address is valid
                 page[f"{offset:0x}"] = data # data written to the incoming page
                 new_entry = {'tag': tag, 'dirty': 0, 'data': page} # collecting components which make up an entry
