@@ -1,5 +1,9 @@
 #!/usr/bin/env python
-# import math
+from customExceptions import *
+import generate
+import replacement
+import tprint
+
 
 ##----[Notes]----##
 
@@ -11,67 +15,6 @@
 
 # BUG LIST:
 #
-
-
-
-#----[Custom Exceptions]----#
-
-class CacheCapacityError(ValueError):
-    pass
-class OutOfBoundAddress(KeyError):
-    pass
-class ConfigError(ValueError):
-    pass
-
-#----[Custom Pretty Print class]----#
-
-class pprint: # May reverse printing order, for now I'm happy with just displaying addresses
-
-    def memory(memory, name):
-        print(f"{name}","{\n\n\t0x0  0x2  0x4  0x6  0x8  0xa  0xc  0xe\n") # Hardcoded for simplicity
-        rows_per_page = len(memory['page_0']) % 8
-        if rows_per_page <= 1:
-            for page in memory:
-                print(f"{page.replace('age_', ':')}\t{' '.join(list(memory[page].values()))}")
-        else:
-            print('Page sizes >8 are yet to be implemented')
-        print("}\n")
-
-    def cache_horiz(cache, name):
-        print(f"{name}","{\n\n","\ttag\t\b\b\b0x0  0x2  0x4  0x6  0x8  0xa  0xc  0xe\n") # Hardcoded for simplicity
-        replacement_algorithm = cache.pop('algorithm') # Not sure how else to get around this
-        for way in cache:
-            print(way.replace('ay_', ':'), end='')
-            for t in range(len(cache[way]['tag'])):
-                print(f"\t{cache[way]['tag'][t]} {' '.join(list(cache[way]['data'][t].values()))}")
-        print("}\n")
-        cache['algorithm'] = replacement_algorithm
-
-
-#----[Replacement Algorithms]----#
-
-def lru(cache, way, new_entry): # Least Recently Used
-    lru_dirty_bit = cache[way]['dirty'][-1]
-    print('\n#----[lru]----#\nlru page dirty?', bool(lru_dirty_bit))    # [ debug ]
-    print('\ntarget_way:', cache[way],'\nNew Entry:', new_entry)        # [ debug ]
-    cache[way]['tag'].insert(0, cache[way]['tag'].pop(-1)) # remove least recent, [-1], and move into most recent, [0]
-    cache[way]['data'].insert(0, cache[way]['data'].pop(-1))
-    cache[way]['dirty'].insert(0, cache[way]['dirty'].pop(-1))
-    if lru_dirty_bit == 0: # clean
-        cache[way]['tag'][0] = new_entry['tag']
-        cache[way]['data'][0] = new_entry['data']
-        cache[way]['dirty'][0] = new_entry['dirty']
-    else: # dirty
-        # only cases I can see is between l1_data_cache and a l1_instr_cache
-        # I'd also need to maintain a hierarchy of the cache levels somehow'
-        pass
-
-
-def lfu(cache, way, new_entry): # least frequently used
-    return 0
-
-def plru(cache, way, new_entry): # pseudo-lru
-    return 0
 
 
 #----[Initialisation]----#
@@ -100,32 +43,32 @@ class Generate:
                         config[key_value_pair[0]] = str(key_value_pair[1]) # catch-all, sanitises any dubious entries
             return config
 
-    @classmethod
-    def get_config(Generate, key :str):
-        value = config.get(key)
-        if value == None:
-            raise ConfigError
-        else:
-            return value
 
     def __init__(self, config_name): # Size in bytes
-        self.config = Generate.config(config_name)
-        self.memory_hierarchy = {}
+    # I need to generate an instance or something of "s16" - which plops out the fully generated spec
+    # this may help:
+    # https://stackoverflow.com/questions/24253761/how-do-you-call-an-instance-of-a-class-in-python
+
+        self.config = Generate.config(config_name) # Take s16.conf key-values and place in dictionary
+        self.memory_hierarchy = {} # will be used to generate memory structures correctly
         PAGE_SIZE = self.config.get('PAGE_SIZE')
         if PAGE_SIZE != 16: # HARDCODED -- custom PAGE_SIZE is low priority
             raise ConfigError
         else:
             self.PAGE_SIZE = PAGE_SIZE
-
         if self.config.get('L1_CACHE') == True:
             self.memory_hierarchy['L1'] = {
                 'data': {'size': self.config.get('L1_DATA_CACHE_SIZE'),
-                         'ways': self.config.get('L1_DATA_CACHE_WAYS'),
-                         'cost': self.config.get('L1_DATA_CACHE_COST')},
+                            'ways': self.config.get('L1_DATA_CACHE_WAYS'),
+                            'cost': self.config.get('L1_DATA_CACHE_COST'),
+                            'repl': self.config.get('L1_DATA_CACHE_REPL')},
                 'inst': {'size': self.config.get('L1_INST_CACHE_SIZE'),
-                         'ways': self.config.get('L1_INST_CACHE_WAYS'),
-                         'cost': self.config.get('L1_INST_CACHE_COST')}}
+                            'ways': self.config.get('L1_INST_CACHE_WAYS'),
+                            'cost': self.config.get('L1_INST_CACHE_COST'),
+                            'repl': self.config.get('L1_INST_CACHE_REPL')}}
+            print(self.memory_hierarchy)
             if None in self.memory_hierarchy['L1']['data'].values() or None in self.memory_hierarchy['L1']['inst'].values():
+                print('i')
                 self.memory_hierarchy.pop('L1')
         if self.config.get('L2_CACHE') == True:
             self.memory_hierarchy['L2'] = {
@@ -134,7 +77,6 @@ class Generate:
                             'cost': self.config.get('L2_DATA_CACHE_COST')}}
             if None in self.memory_hierarchy['L2']['data'].values():
                 self.memory_hierarchy.pop('L2')
-
         print(self.memory_hierarchy)
 
 
@@ -164,6 +106,7 @@ class Generate:
                     cache[way_key]['dirty'].insert(0, 0) # https://en.wikipedia.org/wiki/Dirty_bit
         return cache # cache['way_x']['tag'/'data']
 
+
     def memory(self, byte_capacity):
         PAGE_SIZE = self.PAGE_SIZE
         memory = {}
@@ -174,16 +117,13 @@ class Generate:
                 memory[f"page_{p:0x}"][f"{offset<<1:0x}"] = '0000' # Hex formatting -- pages.bit_length()-4 == log2(x)-4
         return memory
 
+    @classmethod
     def reorder_buffer():
-        0
+        pass
+
+    @classmethod
     def memory_buffer():
-        0
-
-
-
-
-
-#---[Input/Output]----#
+        pass
 
 class Decode: # I'll use this class to make my read/write methods easier to read
 
@@ -286,6 +226,16 @@ class write(Decode): # write.<functions> modify by reference
 
 
 
+    # def components(self):
+    #     if 'L1' in self.memory_hierarchy:
+    #         print('hi')
+    #         l1_data = self.memory_hierarchy['L1']['data']
+    #         self.l1_data_cache = Generate.cache(l1_data['size'], l1_data['ways'], l1_data['repl'])
+
+
+#---[Input/Output]----#
+
+
 class Processor: # Class to collect generated components and allow them to interact easily
     pass
 
@@ -329,17 +279,17 @@ class Processor: # Class to collect generated components and allow them to inter
 #----Testing----#
 GenerateMemory = Generate('s16.conf') # page_size=16 Bytes -> 8*2 Byte words -> 2B = 16-bits
 gp_registers = GenerateMemory.memory(64)
-l1_data_cache = GenerateMemory.cache(128, 4, lru)
+l1_data_cache = GenerateMemory.cache(128, 4, replacement.lru)
 main_mem = GenerateMemory.memory(512)
 
-# pprint.cache_vert(l1_data_cache, 'L1 Cache') # Needs work >_>
+# tprint.cache_vert(l1_data_cache, 'L1 Cache') # Needs work >_>
 
-# print(gp_registers)
-# print(main_mem)
-# print()
-# print(l1_data_cache)
-# pprint.memory(gp_registers, 'GPR')
-# pprint.memory(main_mem, 'RAM')
+print(gp_registers)
+print(main_mem)
+print()
+print(l1_data_cache)
+tprint.memory(gp_registers, 'GPR')
+tprint.memory(main_mem, 'RAM')
 
 # pages of data:
 write.memory(main_mem, '0027', {'0': 'ffff', '2': '0000', '4': '0000', '6': '0000', '8': '0000', 'a': '0000', 'c': '0000', 'e': '0000'})
@@ -347,17 +297,17 @@ write.memory(main_mem, '0017', {'0': 'abcd', '2': 'ffff', '4': '0000', '6': '000
 write.memory(main_mem, '0004', {'0': '0000', '2': '0000', '4': 'ffff', '6': '0000', '8': '0000', 'a': '0000', 'c': '0000', 'e': '0000'})
 
 
-# pprint.memory(main_mem, 'RAM')
-# print(read.memory(main_mem, '0027'))
-# print(read.memory(main_mem, '0017'))
-# pprint.cache_horiz(l1_data_cache, 'L1 Cache')
-# print(read.cache(l1_data_cache, main_mem, '0090'))
-# write.cache(l1_data_cache, main_mem, '0017', '0fe0')
-# write.cache(l1_data_cache, main_mem, '0004', '0ca0')
-# pprint.memory(main_mem, 'RAM')
-# print(read.cache(l1_data_cache, main_mem, '0027'))
-# print(read.cache(l1_data_cache, main_mem, '0014'))
-# pprint.cache_horiz(l1_data_cache, 'L1 Cache')
+tprint.memory(main_mem, 'RAM')
+print(read.memory(main_mem, '0027'))
+print(read.memory(main_mem, '0017'))
+tprint.cache_horiz(l1_data_cache, 'L1 Cache')
+print(read.cache(l1_data_cache, main_mem, '0090'))
+write.cache(l1_data_cache, main_mem, '0017', '0fe0')
+write.cache(l1_data_cache, main_mem, '0004', '0ca0')
+tprint.memory(main_mem, 'RAM')
+print(read.cache(l1_data_cache, main_mem, '0027'))
+print(read.cache(l1_data_cache, main_mem, '0014'))
+tprint.cache_horiz(l1_data_cache, 'L1 Cache')
 
 
 
