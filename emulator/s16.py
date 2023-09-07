@@ -43,6 +43,32 @@ class Generate:
                         config[key_value_pair[0]] = str(key_value_pair[1]) # catch-all, sanitises any dubious entries
             return config
 
+    @classmethod
+    def cache_hierarchy(Generate, config):
+        hierarchy = {}
+        if config.get('L1_CACHE') == True:
+            hierarchy['L1'] = {
+                'data': {'size': config.get('L1_DATA_CACHE_SIZE'),
+                            'ways': config.get('L1_DATA_CACHE_WAYS'),
+                            'cost': config.get('L1_DATA_CACHE_COST'),
+                            'repl': config.get('L1_DATA_CACHE_REPL')},
+                'inst': {'size': config.get('L1_INST_CACHE_SIZE'),
+                            'ways': config.get('L1_INST_CACHE_WAYS'),
+                            'cost': config.get('L1_INST_CACHE_COST'),
+                            'repl': config.get('L1_INST_CACHE_REPL')}}
+            print(hierarchy)
+            if None in hierarchy['L1']['data'].values() or None in hierarchy['L1']['inst'].values():
+                print('i')
+                hierarchy.pop('L1')
+        if config.get('L2_CACHE') == True:
+            hierarchy['L2'] = {
+                'data': {'size': config.get('L2_DATA_CACHE_SIZE'),
+                            'ways': config.get('L2_DATA_CACHE_WAYS'),
+                            'cost': config.get('L2_DATA_CACHE_COST')}}
+            if None in hierarchy['L2']['data'].values():
+                hierarchy.pop('L2')
+        return hierarchy
+
 
     def __init__(self, config_name): # Size in bytes
     # I need to generate an instance or something of "s16" - which plops out the fully generated spec
@@ -50,34 +76,14 @@ class Generate:
     # https://stackoverflow.com/questions/24253761/how-do-you-call-an-instance-of-a-class-in-python
 
         self.config = Generate.config(config_name) # Take s16.conf key-values and place in dictionary
-        self.memory_hierarchy = {} # will be used to generate memory structures correctly
+        self.cache_hierarchy = Generate.cache_hierarchy(self.config) # will be used to generate memory structures correctly
+        print(self.cache_hierarchy)
+
         PAGE_SIZE = self.config.get('PAGE_SIZE')
         if PAGE_SIZE != 16: # HARDCODED -- custom PAGE_SIZE is low priority
             raise ConfigError
         else:
             self.PAGE_SIZE = PAGE_SIZE
-        if self.config.get('L1_CACHE') == True:
-            self.memory_hierarchy['L1'] = {
-                'data': {'size': self.config.get('L1_DATA_CACHE_SIZE'),
-                            'ways': self.config.get('L1_DATA_CACHE_WAYS'),
-                            'cost': self.config.get('L1_DATA_CACHE_COST'),
-                            'repl': self.config.get('L1_DATA_CACHE_REPL')},
-                'inst': {'size': self.config.get('L1_INST_CACHE_SIZE'),
-                            'ways': self.config.get('L1_INST_CACHE_WAYS'),
-                            'cost': self.config.get('L1_INST_CACHE_COST'),
-                            'repl': self.config.get('L1_INST_CACHE_REPL')}}
-            print(self.memory_hierarchy)
-            if None in self.memory_hierarchy['L1']['data'].values() or None in self.memory_hierarchy['L1']['inst'].values():
-                print('i')
-                self.memory_hierarchy.pop('L1')
-        if self.config.get('L2_CACHE') == True:
-            self.memory_hierarchy['L2'] = {
-                'data': {'size': self.config.get('L2_DATA_CACHE_SIZE'),
-                            'ways': self.config.get('L2_DATA_CACHE_WAYS'),
-                            'cost': self.config.get('L2_DATA_CACHE_COST')}}
-            if None in self.memory_hierarchy['L2']['data'].values():
-                self.memory_hierarchy.pop('L2')
-        print(self.memory_hierarchy)
 
 
 
@@ -125,27 +131,6 @@ class Generate:
     def memory_buffer():
         pass
 
-# class decode: # I'll use this class to make my read/write methods easier to read
-#
-#     @classmethod # basically a function without access to the object and its internals
-#     def page(decode, hex_address, offset_bits):
-#         bin_address = f"{int(hex_address, 16):0{16}b}" # convert address into binary -- Hardcoded 16-bit
-#         page = int(bin_address[0:-(offset_bits)], 2) # The remaining bits address the page
-#         print('\n#----[Read.memory]----#\n','offset_bits: ',offset_bits)    # [ debug ]
-#         print('bin_address: ',bin_address,'page:',page)                     # [ debug ]
-#         page_key = f"page_{page:0x}"
-#         return page_key
-#
-#
-#     @classmethod # basically a function without access to the object and its internals
-#     def way(decode, hex_address, way_bits, offset_bits):
-#         bin_address = f"{int(hex_address, 16):0{16}b}" # convert address into binary -- Hardcoded 16-bit
-#         way = bin_address[-(way_bits+offset_bits-1):-offset_bits]
-#         way_key = f"way_{int(way, 2):x}"
-#         print('\n#----[Read.cache]----#\n','\bway_bits:',way_bits-1,'offset_bits:',offset_bits) # [ debug ]
-#         print(f"bin_address: 0b{bin_address}, way: 0b{way}")                                    # [ debug ]
-#         return bin_address, way_key
-
 class read:
 
     def memory(memory, address):
@@ -185,7 +170,7 @@ class read:
             return cache[way_key]['data'][tag_index][f"{offset:0x}"]
 
 
-class write: # write.<functions> modify by reference
+class write: # write.<function> modify by reference
 
     def memory(memory, address, entry):
         offset_bits = len(memory['page_0']).bit_length() # Any memory must have at least page_0
@@ -432,21 +417,6 @@ class s16: # I need to find a way to incorporate the cycle cost of each instruct
     # 	return 0
     # def i16_int(i_packet):
     # 	return 0
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 def main():
