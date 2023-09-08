@@ -12,6 +12,8 @@ import tprint
 # Cache:
 #   - https://en.wikipedia.org/wiki/Cache_placement_policies#Set-associative_cache
 #   - https://www.geeksforgeeks.org/write-through-and-write-back-in-cache
+# Adding date and time to a file:
+#   - https://www.geeksforgeeks.org/how-to-create-filename-containing-date-or-time-in-python/
 
 # BUG LIST:
 # Generate memory structures from the hierachy dictornary !!!
@@ -67,7 +69,33 @@ class Generate:
                             'cost': config.get('L2_DATA_CACHE_COST')}}
             if None in hierarchy['L2']['data'].values():
                 hierarchy.pop('L2')
+        print(hierarchy)
         return hierarchy
+
+    @classmethod ### Not sure I need this due to PAGE_SIZE being inside config
+    def page_size(Generate, config):
+        PAGE_SIZE = config.get('PAGE_SIZE')
+        if PAGE_SIZE != 16: # HARDCODED
+            raise ConfigError
+        else:
+            return PAGE_SIZE
+
+    @classmethod
+    def cache(Generare, config):
+        pass
+
+
+    @classmethod
+    def memory(Generate, config, memory_type):
+        PAGE_SIZE = config.get("PAGE_SIZE")
+        BYTE_CAPACITY = config.get(f"{memory_type}_MEMORY_SIZE")
+        memory = {}
+        pages = int(BYTE_CAPACITY / PAGE_SIZE) # Page -> [a, group, of, data, mapped, to, one, address]
+        for p in range(pages): # building the memory
+            memory[f"page_{p:0x}"] = {}
+            for offset in range(PAGE_SIZE >> 1): # Offset -> Address of data within a page -- page[int(x)] = data
+                memory[f"page_{p:0x}"][f"{offset<<1:0x}"] = '0000' # Hex formatting -- pages.bit_length()-4 == log2(x)-4
+        return memory
 
 
     def __init__(self, config_name): # Size in bytes
@@ -76,14 +104,13 @@ class Generate:
     # https://stackoverflow.com/questions/24253761/how-do-you-call-an-instance-of-a-class-in-python
 
         self.config = Generate.config(config_name) # Take s16.conf key-values and place in dictionary
+        print(self.config)
+        self.PAGE_SIZE = Generate.page_size(self.config) # Hardcoded to 16 Bytes.
+        self.gpr_memory = Generate.memory(self.config, 'GPR')
+        self.main_memory = Generate.memory(self.config, 'MAIN')
         self.cache_hierarchy = Generate.cache_hierarchy(self.config) # will be used to generate memory structures correctly
-        print(self.cache_hierarchy)
 
-        PAGE_SIZE = self.config.get('PAGE_SIZE')
-        if PAGE_SIZE != 16: # HARDCODED -- custom PAGE_SIZE is low priority
-            raise ConfigError
-        else:
-            self.PAGE_SIZE = PAGE_SIZE
+
 
 
 
@@ -112,16 +139,15 @@ class Generate:
                     cache[way_key]['dirty'].insert(0, 0) # https://en.wikipedia.org/wiki/Dirty_bit
         return cache # cache['way_x']['tag'/'data']
 
-
-    def memory(self, byte_capacity):
-        PAGE_SIZE = self.PAGE_SIZE
-        memory = {}
-        pages = int(byte_capacity / PAGE_SIZE) # Page -> [a, group, of, data, mapped, to, one, address]
-        for p in range(pages): # building the memory
-            memory[f"page_{p:0x}"] = {}
-            for offset in range(PAGE_SIZE >> 1): # Offset -> Address of data within a page -- page[int(x)] = data
-                memory[f"page_{p:0x}"][f"{offset<<1:0x}"] = '0000' # Hex formatting -- pages.bit_length()-4 == log2(x)-4
-        return memory
+    # def memory(self, byte_capacity):
+    #     PAGE_SIZE = self.PAGE_SIZE
+    #     memory = {}
+    #     pages = int(byte_capacity / PAGE_SIZE) # Page -> [a, group, of, data, mapped, to, one, address]
+    #     for p in range(pages): # building the memory
+    #         memory[f"page_{p:0x}"] = {}
+    #         for offset in range(PAGE_SIZE >> 1): # Offset -> Address of data within a page -- page[int(x)] = data
+    #             memory[f"page_{p:0x}"][f"{offset<<1:0x}"] = '0000' # Hex formatting -- pages.bit_length()-4 == log2(x)-4
+    #     return memory
 
     @classmethod
     def reorder_buffer():
@@ -262,10 +288,11 @@ class Processor: # Class to collect generated components and allow them to inter
 
 
 #----Testing----#
-GenerateMemory = Generate('s16.conf') # page_size=16 Bytes -> 8*2 Byte words -> 2B = 16-bits
-gp_registers = GenerateMemory.memory(64)
-l1_data_cache = GenerateMemory.cache(128, 4, replacement.lru)
-main_mem = GenerateMemory.memory(512)
+s16 = Generate('s16.conf') # page_size=16 Bytes -> 8*2 Byte words -> 2B = 16-bits
+tprint.memory(s16.gpr_memory, 'gpr')
+tprint.memory(s16.main_memory, 'main')
+# l1_data_cache = GenerateMemory.cache(128, 4, replacement.lru)
+
 
 # tprint.cache_vert(l1_data_cache, 'L1 Cache') # Needs work >_>
 
