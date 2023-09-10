@@ -16,7 +16,7 @@ import tprint
 #   - https://www.geeksforgeeks.org/how-to-create-filename-containing-date-or-time-in-python/
 
 # BUG LIST:
-# Generate memory structures from the hierachy dictornary !!!
+# Generate memory structures from the hierarchy dictornary !!!
 
 
 #----[Initialisation]----#
@@ -46,8 +46,24 @@ class Generate:
             return config
 
     @classmethod
-    def cache_hierarchy(Generate, config):
+    def memory_hierarchy(Generate, config):
         hierarchy = {}
+
+        #ROM
+        rom_file = config.get('ROM_FILE_NAME')
+        print(rom_file[-4:])
+        if rom_file[-4:] == '.s16':
+            hierarchy['rom'] = {
+                'file': rom_file,
+                'start_address': config.get('ROM_START_ADDRESS')}
+
+        #RAM/Main Memory
+        hierarchy['main'] = {
+            'size': config.get('MAIN_MEMORY_SIZE'),
+            'start_address': config.get('MAIN_START_ADDRESS')}
+
+
+        #Cache
         if config.get('L1_CACHE') == True:
             hierarchy['L1'] = {
                 'data': {'size': config.get('L1_DATA_CACHE_SIZE'),
@@ -58,15 +74,13 @@ class Generate:
                             'ways': config.get('L1_INST_CACHE_WAYS'),
                             'cost': config.get('L1_INST_CACHE_COST'),
                             'repl': config.get('L1_INST_CACHE_REPL')}}
-            print(hierarchy)
             if None in hierarchy['L1']['data'].values() or None in hierarchy['L1']['inst'].values():
-                print('i')
                 hierarchy.pop('L1')
         if config.get('L2_CACHE') == True:
             hierarchy['L2'] = {
-                'data': {'size': config.get('L2_DATA_CACHE_SIZE'),
-                            'ways': config.get('L2_DATA_CACHE_WAYS'),
-                            'cost': config.get('L2_DATA_CACHE_COST')}}
+                'data': {'size': config.get('L2_CACHE_SIZE'),
+                         'ways': config.get('L2_CACHE_WAYS'),
+                         'cost': config.get('L2_CACHE_COST')}}
             if None in hierarchy['L2']['data'].values():
                 hierarchy.pop('L2')
         print(hierarchy)
@@ -81,22 +95,38 @@ class Generate:
             return PAGE_SIZE
 
     @classmethod
-    def cache(Generare, config):
-        pass
+    def cache(Generare, config, hierarchy):
+        if 'L1' in hierarchy:
+            hierarchy
 
 
     @classmethod
     def memory(Generate, config, memory_type):
         PAGE_SIZE = config.get("PAGE_SIZE")
-        BYTE_CAPACITY = config.get(f"{memory_type}_MEMORY_SIZE")
+        if memory_type == 'ROM':
+            START_ADDRESS = int(config.get('ROM_START_ADDRESS'), 16)
+            BYTE_CAPACITY = int(config.get('MAIN_START_ADDRESS'), 16) - START_ADDRESS
+            if BYTE_CAPACITY <= 0: ### BUG: ROM address-space cannot be above RAM's address-space
+                raise ConfigError('Custom start addresses not yet supported\n -- ROM_START_ADDRESS must equal 0x0.')
+        else:
+            START_ADDRESS = int(config.get('MAIN_START_ADDRESS'), 16)
+            BYTE_CAPACITY = config.get(f"{memory_type}_MEMORY_SIZE")
         memory = {}
         pages = int(BYTE_CAPACITY / PAGE_SIZE) # Page -> [a, group, of, data, mapped, to, one, address]
-        for p in range(pages): # building the memory
+        starting_page = int(START_ADDRESS / PAGE_SIZE)
+        for p in range(starting_page, starting_page + pages): # building the memory
             memory[f"page_{p:0x}"] = {}
-            for offset in range(PAGE_SIZE >> 1): # Offset -> Address of data within a page -- page[int(x)] = data
+            for offset in range(PAGE_SIZE >> 1): # Offset -> Address of data within a page
                 memory[f"page_{p:0x}"][f"{offset<<1:0x}"] = '0000' # Hex formatting -- pages.bit_length()-4 == log2(x)-4
         return memory
 
+    @classmethod
+    def reorder_buffer():
+        pass
+
+    @classmethod
+    def memory_buffer():
+        pass
 
     def __init__(self, config_name): # Size in bytes
     # I need to generate an instance or something of "s16" - which plops out the fully generated spec
@@ -107,8 +137,21 @@ class Generate:
         print(self.config)
         self.PAGE_SIZE = Generate.page_size(self.config) # Hardcoded to 16 Bytes.
         self.gpr_memory = Generate.memory(self.config, 'GPR')
+
+        # hen generating Main memory(aka s16's RAM) the starting/ending address must be taken into account
+        # to properly address any extra memory, such as ROM and Ports
+        # E.g. ROM addresses start and 0x0000 and end at 0x00ff, then RAM starts at 0x0100.
+
         self.main_memory = Generate.memory(self.config, 'MAIN')
-        self.cache_hierarchy = Generate.cache_hierarchy(self.config) # will be used to generate memory structures correctly
+        self.rom = Generate.memory(self.config, 'ROM')
+        self.memory_hierarchy = Generate.memory_hierarchy(self.config) # will be used to generate memory structures correctly
+        if 'L1' in self.memory_hierarchy:
+            self.l1_data_cache = {}
+            self.l1_inst_cache = {}
+        if 'L2' in self.memory_hierarchy:
+            self.l2_cache = {}
+
+
 
 
 
@@ -149,13 +192,7 @@ class Generate:
     #             memory[f"page_{p:0x}"][f"{offset<<1:0x}"] = '0000' # Hex formatting -- pages.bit_length()-4 == log2(x)-4
     #     return memory
 
-    @classmethod
-    def reorder_buffer():
-        pass
 
-    @classmethod
-    def memory_buffer():
-        pass
 
 class read:
 
@@ -290,6 +327,7 @@ class Processor: # Class to collect generated components and allow them to inter
 #----Testing----#
 s16 = Generate('s16.conf') # page_size=16 Bytes -> 8*2 Byte words -> 2B = 16-bits
 tprint.memory(s16.gpr_memory, 'gpr')
+tprint.memory(s16.rom, 'rom')
 tprint.memory(s16.main_memory, 'main')
 # l1_data_cache = GenerateMemory.cache(128, 4, replacement.lru)
 
@@ -320,14 +358,6 @@ tprint.memory(s16.main_memory, 'main')
 # print(read.cache(l1_data_cache, main_mem, '0027'))
 # print(read.cache(l1_data_cache, main_mem, '0014'))
 # tprint.cache_horiz(l1_data_cache, 'L1 Cache')
-
-# print(GenerateMemory.)
-
-
-
-
-
-
 
 
 
@@ -449,7 +479,7 @@ class s16: # I need to find a way to incorporate the cycle cost of each instruct
 def main():
     # Initialise s16 dictonary(?) structure
     # loop<generate memory>:
-    #   read hierachy
+    #   read hierarchy
     #   generate component
     #   place component -> s16
     #

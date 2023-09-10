@@ -1,6 +1,7 @@
 def memory(memory, name):
     print(f"{name}","{\n\n\t0x0  0x2  0x4  0x6  0x8  0xa  0xc  0xe\n") # Hardcoded for simplicity
-    rows_per_page = len(memory['page_0']) % 8
+
+    rows_per_page = len(memory[list(memory.keys())[0]]) % 8
     if rows_per_page <= 1:
         for page in memory:
             print(f"{page.replace('age_', ':')}\t{' '.join(list(memory[page].values()))}")
