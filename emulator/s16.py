@@ -16,7 +16,11 @@ import tprint
 #   - https://www.geeksforgeeks.org/how-to-create-filename-containing-date-or-time-in-python/
 
 # BUG LIST:
-# Generate memory structures from the hierarchy dictornary !!!
+#
+
+
+# TODO LIST:
+# Generate cache structures from the hierarchy dictornary !!!
 
 
 #----[Initialisation]----#
@@ -95,10 +99,34 @@ class Generate:
             return PAGE_SIZE
 
     @classmethod
-    def cache(Generare, config, hierarchy):
-        if 'L1' in hierarchy:
-            hierarchy
-
+    def cache(Generate, config, memory_type):
+        # https://en.wikipedia.org/wiki/Cache_placement_policies#Set-associative_cache
+        cache = {} # cache decoding: way | tag | offset
+        WAYS = config.get(f"{memory_type}_CACHE_WAYS")
+        PAGE_SIZE = config.get('PAGE_SIZE')
+        BYTE_CAPACITY = config.get(f"{memory_type}_CACHE_SIZE")
+        tag_count = int(BYTE_CAPACITY / PAGE_SIZE) # minimum BYTE_CAPACITY == WAYS*PAGE_SIZE
+        tags_per_way = int(tag_count / WAYS)
+        replacement_algorithm = config.get(f"{memory_type}_CACHE_REPL")
+        cache['algorithm'] = eval(f"replacement.{replacement_algorithm}")
+        # print('tc: ',tag_count, 'tpw: ', tags_per_way) # [ debug ]
+        if tags_per_way == 0:
+            raise CacheCapacityError(f"Insufficient <BYTE_CAPACITY> for the number of <WAYS>\nMinimum <BYTE_CAPACITY> == WAYS*PAGE_SIZE = {WAYS*PAGE_SIZE}")
+        if WAYS < 2: # Other functions require, at least, a 'way_0' key to access the data inside a cache
+            cache['way_0'] = {'tag': [], 'dirty':[], 'data': []}
+            for a in range(tags_per_way): # Generate a initialised dictionary/page with offset(0 to f): 0000 (hex)
+                cache['way_0']['tag'].insert(0, '0000') # Need to implement variable tag size
+                cache['way_0']['data'].insert(0, {f"{offset<<1:0{PAGE_SIZE.bit_length()-4}x}": '0000' for offset in range(PAGE_SIZE>>1)}) # bit_length() ~ log2
+                cache['way_0']['dirty'].insert(0, 0) # https://en.wikipedia.org/wiki/Dirty_bit
+        else:
+            for w in range(WAYS): # WAYS, as in, x-way set-associative
+                way_key = f"way_{w:x}" # way_{hex(w)}
+                cache[way_key] = {'tag': [], 'dirty':[], 'data': []}
+                for a in range(tags_per_way): # Generate a initialised dictionary/page with offset(0 to f): 0000 (hex)
+                    cache[way_key]['tag'].insert(0, '0000') # Need to implement variable tag size
+                    cache[way_key]['data'].insert(0, {f"{offset<<1:0{PAGE_SIZE.bit_length()-4}x}": '0000' for offset in range(PAGE_SIZE>>1)}) # bit_length() ~ log2
+                    cache[way_key]['dirty'].insert(0, 0) # https://en.wikipedia.org/wiki/Dirty_bit
+        return cache # cache['way_x']['tag'/'data']
 
     @classmethod
     def memory(Generate, config, memory_type):
@@ -135,10 +163,10 @@ class Generate:
 
         self.config = Generate.config(config_name) # Take s16.conf key-values and place in dictionary
         print(self.config)
-        self.PAGE_SIZE = Generate.page_size(self.config) # Hardcoded to 16 Bytes.
+        self.PAGE_SIZE = Generate.page_size(self.config) # Hardcoded to 16 Bytes. # If Gen
         self.gpr_memory = Generate.memory(self.config, 'GPR')
 
-        # hen generating Main memory(aka s16's RAM) the starting/ending address must be taken into account
+        # when generating Main memory(aka s16's RAM) the starting/ending address must be taken into account
         # to properly address any extra memory, such as ROM and Ports
         # E.g. ROM addresses start and 0x0000 and end at 0x00ff, then RAM starts at 0x0100.
 
@@ -146,51 +174,10 @@ class Generate:
         self.rom = Generate.memory(self.config, 'ROM')
         self.memory_hierarchy = Generate.memory_hierarchy(self.config) # will be used to generate memory structures correctly
         if 'L1' in self.memory_hierarchy:
-            self.l1_data_cache = {}
-            self.l1_inst_cache = {}
+            self.l1_data_cache = Generate.cache(self.config, 'L1_DATA')
+            self.l1_inst_cache = Generate.cache(self.config, 'L1_INST')
         if 'L2' in self.memory_hierarchy:
-            self.l2_cache = {}
-
-
-
-
-
-
-
-    def cache(self, byte_capacity, ways, replacement_algorithm): # https://en.wikipedia.org/wiki/Cache_placement_policies#Set-associative_cache
-        cache = {} # cache decoding: way | tag | offset
-        PAGE_SIZE = self.PAGE_SIZE
-        tag_count = int(byte_capacity / PAGE_SIZE) # minimum byte_capacity == ways*PAGE_SIZE
-        tags_per_way = int(tag_count / ways)
-        cache['algorithm'] = replacement_algorithm
-        # print('ttc: ',tag_count, 'tpw: ', tags_per_way) # [ debug ]
-        if tags_per_way == 0:
-            raise CacheCapacityError(f"Insufficient <byte_capacity> for the number of <ways>\nMinimum <byte_capacity> == ways*PAGE_SIZE = {ways*PAGE_SIZE}")
-        if ways < 2: # Other functions require, at least, a 'way_0' key to access the data inside a cache
-            cache['way_0'] = {'tag': [], 'dirty':[], 'data': []}
-            for a in range(tags_per_way): # Generate a initialised dictionary/page with offset(0 to f): 0000 (hex)
-                cache['way_0']['tag'].insert(0, '0000') # Need to implement variable tag size
-                cache['way_0']['data'].insert(0, {f"{offset<<1:0{PAGE_SIZE.bit_length()-4}x}": '0000' for offset in range(PAGE_SIZE>>1)}) # bit_length() ~ log2
-                cache['way_0']['dirty'].insert(0, 0) # https://en.wikipedia.org/wiki/Dirty_bit
-        else:
-            for w in range(ways): # ways, as in, x-way set-associative
-                way_key = f"way_{w:x}" # way_{hex(w)}
-                cache[way_key] = {'tag': [], 'dirty':[], 'data': []}
-                for a in range(tags_per_way): # Generate a initialised dictionary/page with offset(0 to f): 0000 (hex)
-                    cache[way_key]['tag'].insert(0, '0000') # Need to implement variable tag size
-                    cache[way_key]['data'].insert(0, {f"{offset<<1:0{PAGE_SIZE.bit_length()-4}x}": '0000' for offset in range(PAGE_SIZE>>1)}) # bit_length() ~ log2
-                    cache[way_key]['dirty'].insert(0, 0) # https://en.wikipedia.org/wiki/Dirty_bit
-        return cache # cache['way_x']['tag'/'data']
-
-    # def memory(self, byte_capacity):
-    #     PAGE_SIZE = self.PAGE_SIZE
-    #     memory = {}
-    #     pages = int(byte_capacity / PAGE_SIZE) # Page -> [a, group, of, data, mapped, to, one, address]
-    #     for p in range(pages): # building the memory
-    #         memory[f"page_{p:0x}"] = {}
-    #         for offset in range(PAGE_SIZE >> 1): # Offset -> Address of data within a page -- page[int(x)] = data
-    #             memory[f"page_{p:0x}"][f"{offset<<1:0x}"] = '0000' # Hex formatting -- pages.bit_length()-4 == log2(x)-4
-    #     return memory
+            self.l2_cache = Generate.cache(self.config, 'L2')
 
 
 
@@ -329,8 +316,7 @@ s16 = Generate('s16.conf') # page_size=16 Bytes -> 8*2 Byte words -> 2B = 16-bit
 tprint.memory(s16.gpr_memory, 'gpr')
 tprint.memory(s16.rom, 'rom')
 tprint.memory(s16.main_memory, 'main')
-# l1_data_cache = GenerateMemory.cache(128, 4, replacement.lru)
-
+tprint.cache_horiz(s16.l1_data_cache, 'l1d')
 
 # tprint.cache_vert(l1_data_cache, 'L1 Cache') # Needs work >_>
 
