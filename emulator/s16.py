@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 from customExceptions import *
+import x16_assembler.asm
 import replacement
 import decode
 import tprint
@@ -20,7 +21,8 @@ import tprint
 
 
 # TODO LIST:
-# Generate cache structures from the hierarchy dictornary !!!
+# Create/port assembler
+# start work on class:Packet and Class:Instructions - the
 
 
 #----[Initialisation]----#
@@ -41,10 +43,8 @@ class Generate:
                 try:
                     config[key_value_pair[0]] = int(key_value_pair[1])
                 except ValueError:
-                    if key_value_pair[1] == 'True':
-                        config[key_value_pair[0]] = True
-                    elif key_value_pair[1] == 'False':
-                        config[key_value_pair[0]] = False
+                    if key_value_pair[1] == 'True' or key_value_pair[1] == 'False':
+                        config[key_value_pair[0]] = eval(key_value_pair[1]) # evaluates string into bool
                     else:
                         config[key_value_pair[0]] = str(key_value_pair[1]) # catch-all, sanitises any dubious entries
             return config
@@ -164,7 +164,7 @@ class Generate:
         self.config = Generate.config(config_name) # Take s16.conf key-values and place in dictionary
         print(self.config)
         self.PAGE_SIZE = Generate.page_size(self.config) # Hardcoded to 16 Bytes. # If Gen
-        self.gpr_memory = Generate.memory(self.config, 'GPR')
+        self.gpr_memory = Generate.memory(self.config, 'GPR') # GPRs will technically be 16-bit + 2=bit flags -- info in docs
 
         # when generating Main memory(aka s16's RAM) the starting/ending address must be taken into account
         # to properly address any extra memory, such as ROM and Ports
@@ -314,36 +314,20 @@ class Processor: # Class to collect generated components and allow them to inter
 #----Testing----#
 s16 = Generate('s16.conf') # page_size=16 Bytes -> 8*2 Byte words -> 2B = 16-bits
 tprint.memory(s16.gpr_memory, 'gpr')
-tprint.memory(s16.rom, 'rom')
-tprint.memory(s16.main_memory, 'main')
-tprint.cache_horiz(s16.l1_data_cache, 'l1d')
+print(s16.gpr_memory)
+
+# tprint.memory(s16.rom, 'rom')
+# tprint.memory(s16.main_memory, 'main')
+# tprint.cache_horiz(s16.l1_data_cache, 'l1d')
 
 # tprint.cache_vert(l1_data_cache, 'L1 Cache') # Needs work >_>
 
-# print(gp_registers)
-# print(main_mem)
-# print()
-# print(l1_data_cache)
-# tprint.memory(gp_registers, 'GPR')
-# tprint.memory(main_mem, 'RAM')
 #
 # # pages of data:
 # write.memory(main_mem, '0027', {'0': 'ffff', '2': '0000', '4': '0000', '6': '0000', '8': '0000', 'a': '0000', 'c': '0000', 'e': '0000'})
 # write.memory(main_mem, '0017', {'0': 'abcd', '2': 'ffff', '4': '0000', '6': '0000', '8': '0000', 'a': '0000', 'c': '0000', 'e': '0000'})
 # write.memory(main_mem, '0004', {'0': '0000', '2': '0000', '4': 'ffff', '6': '0000', '8': '0000', 'a': '0000', 'c': '0000', 'e': '0000'})
 #
-#
-# tprint.memory(main_mem, 'RAM')
-# print(read.memory(main_mem, '0027'))
-# print(read.memory(main_mem, '0017'))
-# tprint.cache_horiz(l1_data_cache, 'L1 Cache')
-# print(read.cache(l1_data_cache, main_mem, '0090'))
-# write.cache(l1_data_cache, main_mem, '0017', '0fe0')
-# write.cache(l1_data_cache, main_mem, '0004', '0ca0')
-# tprint.memory(main_mem, 'RAM')
-# print(read.cache(l1_data_cache, main_mem, '0027'))
-# print(read.cache(l1_data_cache, main_mem, '0014'))
-# tprint.cache_horiz(l1_data_cache, 'L1 Cache')
 
 
 
@@ -373,93 +357,6 @@ xxxx|op-|format-------------
 
 
 """
-
-
-
-class s16: # I need to find a way to incorporate the cycle cost of each instruction... eventually
-    # "i16..." -> 16-bit instruction / also fixes built-in function clashes
-    def i16_ior(i_packet):
-        a = i_packet["a"]
-        b = i_packet["b"]
-        out_i_packet = {}
-        out_i_packet["c"] = a | b
-        # copy <packet>, except from ["a"] and ["b"], to <outbound_packet> using whatever func to merge dictionaries
-        return out_i_packet
-
-
-    # def i16_and(i_packet):
-    # 	a = i_packet["a"]
-    # 	b = i_packet["b"]
-    # 	out_i_packet = {}
-    # 	out_i_packet["c"] = a & b
-    # 	return out_i_packet
-    # def i16_xor(i_packet):
-    # 	a = i_packet["a"]
-    # 	b = i_packet["b"]
-    # 	out_i_packet = {}
-    # 	out_i_packet["c"] = a ^ b
-    # 	return out_i_packet
-    # def i16_abs(i_packet):
-    # 	a = i_packet["a"]
-    # 	out_i_packet = {}
-    # 	out_i_packet["c"] = abs(a)
-    # 	return out_i_packet
-    # def i16_add(i_packet):
-    # 	a = i_packet["a"]
-    # 	b = i_packet["b"]
-    # 	out_i_packet = {}
-    # 	out_i_packet["c"] = a + b
-    # 	return out_i_packet
-    # def i16_adc(i_packet):
-    # 	a = i_packet["a"]
-    # 	b = i_packet["b"]
-    # 	out_i_packet = {}
-    # 	out_i_packet["c"] = a & b
-    # 	return out_i_packet
-    # def i16_sub(i_packet):
-    # 	a = i_packet["a"]
-    # 	b = i_packet["b"]
-    # 	out_i_packet = {}
-    # 	out_i_packet["c"] = a & b
-    # 	return out_i_packet
-    # def i16_sbb(i_packet):
-    # 	a = i_packet["a"]
-    # 	b = i_packet["b"]
-    # 	out_i_packet = {}
-    # 	out_i_packet["c"] = a & b
-    # 	return out_i_packet
-    # def i16_bsh(i_packet):
-    # 	a = i_packet["a"]
-    # 	b = i_packet["b"]
-    # 	out_i_packet = {}
-    # 	out_i_packet["c"] = a & b
-    # 	return out_i_packet
-    # def i16_bd(i_packet):
-
-    # 	out_i_packet = {}
-    # 	out_i_packet["c"] = a & b
-    # 	return out_i_packet
-    # def i16_lim(i_packet):
-    # 	a = i_packet["a"]
-    # 	b = i_packet["b"]
-    # 	out_i_packet = {}
-    # 	out_i_packet["c"] = a & b
-    # 	return out_i_packet
-    # def i16_ls(i_packet):
-
-    # 	return out_i_packet
-    # def i16_cmp(i_packet):
-    # 	a = i_packet["a"]
-    # 	b = i_packet["b"]
-    # 	out_i_packet = {}
-    # 	out_i_packet["c"] = a & b
-    # 	return out_i_packet
-    # def i16_tst(i_packet):
-    # 	return 0
-    # def i16_jmp(i_packet):
-    # 	return 0
-    # def i16_int(i_packet):
-    # 	return 0
 
 
 def main():
