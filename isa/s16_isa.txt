@@ -15,7 +15,7 @@ xxxx|op-|format-------------
 1010 lim 000xxxx-cnn-nnn-nnn   c: r0,r4 / n..: sign extended ±127
 1011 ls  000xxxx-sss-bbb-aaa sss: ldb ldw ldp stb stw stp mv  cmv / [b]yte [w]ord=2B [p]age=2B*8
 1100 cmp 000xxxx-sss-bbb-aaa sss: sn  lt  le  eq  gt  ge  slt sgt / return: false=0 true=1 /
-1101 tst 000xxxx-sss-bbb-aaa sss: tio tno tan tna txo txn tim tni / return: false=0 true=1
-1110 jmp 000xxxx-sss-bbb-aaa sss: jal jr  jd  ji  cjr cjd cji ret / bbb: ađdr / aaa: cmp to true=1
+1101 tst 000xxxx-sss-bbb-aaa sss: tio tno tan tna txn tim tni tfc / return: false=0 true=1 / tf[lag]c[out]
+1110 jmp 000xxxx-sss-bbb-aaa sss: jal jrr jrd jir  cjr cjd cji ret / bbb: ađdr / aaa: cmp to true=1
 1111 int 000xxxx-nnn-nnn-nnn n..: interupt code, data or address [wip]
 
