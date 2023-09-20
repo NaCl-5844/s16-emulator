@@ -1,20 +1,13 @@
 #!/usr/bin/env python
-
+from sys import argv
 import re
-# Goals:
-# > To generate hexadecimal or binary files based on s16 assembly
-# > Use "argv"s to anable multiple assembly files to be stitched into one hex/bin file
-# > port and upgrade functions from "t16-assembler"
-
 # Long Term Goals:
 # > Code and assemble in the command-line/shell then output to hex/bin file
-# >
-
 
 # BUG List:
 # (fixed) 000: Cannot determine if asembly instruction not compatible with format file
 # (fixed) 001: cannot determine if format file is of consistent bit-length
-
+# (fixed) 002: Only binary output format works
 
 class InstructionMatchError(KeyError):
     pass
@@ -22,8 +15,6 @@ class FormatFileError(ValueError):
     pass
 class AssemblyError(ValueError):
     pass
-
-
 
 def get_assembly(assembly_file):
     assembly = {}
@@ -35,10 +26,8 @@ def get_assembly(assembly_file):
                 # print(f"file line number: {line_number}\nRaw line: {line}Split line: {split_line}\nAssembly: {assembly[line_number]}\n") # [ DEBUG ]
     return assembly #assembly[line_address] -> (op, 'operand string')
 
-
 # Generate a {set} of (instruction,format) tuples to save time lookup/translation speed
-# Also assembles operation(op) codes and sub-operation(subOp) codes, e.g:
-# ret:  XXXXXXX-SSS-BBB-AAA -> 0001110-111-BBB-AAA
+# Also assembles operation codes, e.g: ret = XXXXXXX-SSS-BBB-AAA -> 0001110-111-BBB-AAA
 def get_reference_cache(assembly, format_file):
     reference_cache = {}
     operation_set = {v[0] for v in assembly.values()}
@@ -49,48 +38,76 @@ def get_reference_cache(assembly, format_file):
             if len(split_line) > 1 and split_line[0] in operation_set:
                 clean_line = split_line[1].replace('-', '')
                 reference_cache[split_line[0]] = clean_line
-                checksum += len(clean_line)
-                line_sum += 1
+                checksum += len(clean_line) # checksum checks for consistent bit length in source assembly
+                line_sum += 1 # aids in the checksum calculation
                 # print(checksum, line_sum) # [ DEBUG ]
     if checksum == 16*line_sum: # lines*16 == lines*format_length
         return reference_cache #reference_cache[op] -> format
     else:
         raise FormatFileError('Inconsistent bit-lengths in format file.') # BUG 001 -- fixed
 
-
-def parse(assembly, reference_cache):
+def parse(assembly, reference_cache, output_format):
     print(f"Cleaned assembly:\n{assembly}")
     bytecode = {}
-    for line, instruction in enumerate(assembly.values()): # assemble operation codes
+    for file_line, instruction in enumerate(assembly.values()): # assemble operation codes
         operation, operands = instruction
-        print(line, operation, operands)                    # [ DEBUG ]
+        print(file_line, operation, operands)                    # [ DEBUG ]
         instruction_format = reference_cache.get(operation)
         if instruction_format == None: # BUG 000 -- fixed
             raise InstructionMatchError(f"Invalid instruction found: [{operation}] Please review assembly code or use a different _[x]16_format_")
-        bytecode[line] = (reference_cache[operation],
+        bytecode[file_line] = (reference_cache[operation],
                           operands,
                           list(set(re.findall('N|C|B|A', instruction_format))))
         # print(f"Incomplete bytecode: {bytecode[line]}\n")  # [ DEBUG ]
     for line, partial_bytecode in enumerate(bytecode.values()): # assemble operands
         code, assembly_operands, format_operands = partial_bytecode
-        for operand_count, value in enumerate(format_operands): # Nested loop becuase f**k you. That's why.
-            operand_len = len(re.findall(f"{format_operands[-1]}", code))
-            print(line, operand_count, value, code, operand_len, assembly_operands) # [ DEBUG ]
-            target_operand = assembly_operands.rsplit(', ', 1)[-1]
-            if target_operand[0] == 'r':
+        for operand_count in range(len(format_operands)): # Nested loop becuase f**k you. That's why.
+            operand_length = len(re.findall(f"{format_operands[-1]}", code))
+            operand = format_operands[-1]
+            print(line, operand_count, operand, code, operand_length, assembly_operands, format_operands) # [ DEBUG ]
+            target_operand = assembly_operands.rsplit(', ', 1)
+            if target_operand[-1][0] == 'r':
                 try:
-                    target_value = int(target_operand[1:])
-                    print(target_value)
-                except AssemblyError:
-                    print(f"Error found in {partial_bytecode}")
+                    target_value = int(target_operand[-1][1:])
+                except ValueError:
+                    raise AssemblyError(f"Error found on line {line+1}: {assembly[line]}") # needs to show/capture more helptul data
             else:
                 try:
-                    target_value = int(target_operand)
-                    print(target_value)
-                except AssemblyError:
-                    print(f"Error found in {partial_bytecode}")
+                    target_value = int(target_operand[-1])
+                except ValueError:
+                    raise AssemblyError(f"Error found on line {line+1}: {assembly[line]}") # needs to show/capture more helptul data
             if target_value < 0:
-                target_value = None
+                # This AWFUL line converts a signed value into it's binary 2's complement value
+                target_value = f"{((1<<operand_length)-1)+target_value+1:0{operand_length}{output_format}}"
+            else:
+                target_value = f"{target_value:0{operand_length}{output_format}}"
+            print(target_value)
+            code = (code.replace(operand*operand_length, target_value))
+            assembly_operands = target_operand[0]
+            format_operands.pop(-1)
+            print(code)
+            bytecode[line] = code
+    return bytecode
+
+def store_to_file(bytecode, file_format, file_name):
+    pass
+
+
+
+
+def main():
+
+    """
+    OPTION\tDESCRIPTION
+
+    -h, --help\tShows this
+    -b\t\tBinary Format
+    -h\t\tHexadecimal Format
+    -bh\t\tBoth formats, binary first
+    -hb\t\tBoth formats, hex first`
+
+    """
+    pass
 
 
 
@@ -100,18 +117,13 @@ def parse(assembly, reference_cache):
 
 
 
-
-
-
-
-
-
-
+if __name__ == "__main__":
+    main()
 
 
 
 cleaned_assembly = get_assembly('test_asm.s16')
 ref_cache = get_reference_cache(cleaned_assembly, '_s16_format_')
 print(ref_cache)
-parse(cleaned_assembly, ref_cache)
+parse(cleaned_assembly, ref_cache, 'b')
 
