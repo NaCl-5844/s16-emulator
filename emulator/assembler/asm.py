@@ -56,8 +56,8 @@ def parse(assembly, reference_cache, output_format):
         if instruction_format == None: # BUG 000 -- fixed
             raise InstructionMatchError(f"Invalid instruction found: [{operation}] Please review assembly code or use a different _[x]16_format_")
         bytecode[file_line] = (reference_cache[operation],
-                          operands,
-                          list(set(re.findall('N|C|B|A', instruction_format))))
+                               operands,
+                               list(set(re.findall('N|C|B|A', instruction_format))))
         # print(f"Incomplete bytecode: {bytecode[line]}\n")  # [ DEBUG ]
     for line, partial_bytecode in enumerate(bytecode.values()): # assemble operands
         code, assembly_operands, format_operands = partial_bytecode
@@ -70,12 +70,12 @@ def parse(assembly, reference_cache, output_format):
                 try:
                     target_value = int(target_operand[-1][1:])
                 except ValueError:
-                    raise AssemblyError(f"Error found on line {line+1}: {assembly[line]}") # needs to show/capture more helptul data
+                    raise AssemblyError(f"Error found on line {line+1}: {assembly[line]}")
             else:
                 try:
                     target_value = int(target_operand[-1])
                 except ValueError:
-                    raise AssemblyError(f"Error found on line {line+1}: {assembly[line]}") # needs to show/capture more helptul data
+                    raise AssemblyError(f"Error found on line {line+1}: {assembly[line]}")
             if target_value < 0:
                 # This AWFUL line converts a signed value into it's binary 2's complement value
                 target_value = f"{((1<<operand_length)-1)+target_value+1:0{operand_length}{output_format}}"
@@ -90,24 +90,38 @@ def parse(assembly, reference_cache, output_format):
     return bytecode
 
 def store_to_file(bytecode, file_format, file_name):
-    pass
+    with open(file_name, 'w') as output_file:
+        for line, code in enumerate(bytecode):
+            print(bytecode[line]) # [ DEBUG ]
 
 
 
 
-def main():
 
-    """
+
+def print_help():
+    print("""
     OPTION\tDESCRIPTION
 
-    -h, --help\tShows this
+    -h, --help\tPrint help
     -b\t\tBinary Format
     -h\t\tHexadecimal Format
     -bh\t\tBoth formats, binary first
     -hb\t\tBoth formats, hex first`
 
-    """
-    pass
+    """)
+
+
+def main():
+
+    argv_options = {
+        '-h': print_help(),
+        '--help': print_help(),
+        '-b': 0,
+        '-h': 0,
+        '-bh': 0,
+        '-hb': 0,
+        }
 
 
 
@@ -125,5 +139,7 @@ if __name__ == "__main__":
 cleaned_assembly = get_assembly('test_asm.s16')
 ref_cache = get_reference_cache(cleaned_assembly, '_s16_format_')
 print(ref_cache)
-parse(cleaned_assembly, ref_cache, 'b')
+my_code = parse(cleaned_assembly, ref_cache, 'b')
+store_to_file(my_code, 'peep', 'b')
 
+print_help()
