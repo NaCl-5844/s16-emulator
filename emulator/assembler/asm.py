@@ -4,16 +4,13 @@ import re
 # Long Term Goals:
 # > Code and assemble in the command-line/shell then output to hex/bin file
 
-# BUG List:
-# (fixed) 000: Cannot determine if asembly instruction not compatible with format file
-# (fixed) 001: cannot determine if format file is of consistent bit-length
-# (fixed) 002: Only binary output format works
-
 class InstructionMatchError(KeyError):
     pass
 class FormatFileError(ValueError):
     pass
 class AssemblyError(ValueError):
+    pass
+class LineArgumentError(KeyError):
     pass
 
 def get_assembly(assembly_file):
@@ -89,46 +86,50 @@ def parse(assembly, reference_cache, output_format):
             bytecode[line] = code
     return bytecode
 
-def store_to_file(bytecode, file_format, file_name):
+def store_to_file(bytecode, file_name):
     with open(file_name, 'w') as output_file:
         for line, code in enumerate(bytecode):
+            output_file.writelines(f"{bytecode[line]}\n")
             print(bytecode[line]) # [ DEBUG ]
-
-
-
-
-
 
 def print_help():
     print("""
     OPTION\tDESCRIPTION
 
+    asm.py -[format/option] [assembly] [filename]
+
     -h, --help\tPrint help
     -b\t\tBinary Format
     -h\t\tHexadecimal Format
     -bh\t\tBoth formats, binary first
-    -hb\t\tBoth formats, hex first`
+    -hb\t\tBoth formats, hex first
 
     """)
-
+    exit()
 
 def main():
-
-    argv_options = {
-        '-h': print_help(),
-        '--help': print_help(),
-        '-b': 0,
-        '-h': 0,
-        '-bh': 0,
-        '-hb': 0,
-        }
-
-
-
-
-
-
-
+    if '-h' in argv or '--help' in argv:
+        print_help() # prints help then exit()
+    try:
+        option = argv[-3]
+        if option in ['-h', '-b', '-x', '-bx', '-bx']:
+            print(option)
+            input_file = argv[-2]
+            output_file = argv[-1]
+        else:
+            raise KeyError
+    except IndexError:
+        print('\nA format, source assembly file and an output filename are required.')
+        print_help() # prints help then exit()
+        # print("Incorrect line arguments.Correct method:\npython asm.py -[b/x/bx/xb] [assembly_in] [filename_out]")
+    except KeyError:
+        print('\n Please use valid options.')
+        print_help() # prints help then exit()
+    cleaned_assembly = get_assembly(input_file)
+    ref_cache = get_reference_cache(cleaned_assembly, '_s16_format_') # Hardcoded format file -- should check if it exists?
+    binary_code = parse(cleaned_assembly, ref_cache, option[-1])
+    store_to_file(binary_code, output_file)
+    exit()
 
 
 if __name__ == "__main__":
@@ -136,10 +137,4 @@ if __name__ == "__main__":
 
 
 
-cleaned_assembly = get_assembly('test_asm.s16')
-ref_cache = get_reference_cache(cleaned_assembly, '_s16_format_')
-print(ref_cache)
-my_code = parse(cleaned_assembly, ref_cache, 'b')
-store_to_file(my_code, 'peep', 'b')
 
-print_help()
