@@ -1,10 +1,9 @@
 #!/usr/bin/env python
 from customExceptions import *
-import x16_assembler.asm
+import assembler.asm
 import replacement
 import decode
 import tprint
-
 
 ##----[Notes]----##
 
@@ -17,13 +16,13 @@ import tprint
 #   - https://www.geeksforgeeks.org/how-to-create-filename-containing-date-or-time-in-python/
 
 # BUG LIST:
-#
-
+# > ROM address-space cannot be above RAM's address-space
+# > Only binary file-types can be generted/used (THIS IS FINE FOR NOW, JUST A REMINDER)
+# > Naive page address decoding in class:Read and class:Write
 
 # TODO LIST:
-# Create/port assembler
+# Load ROM with binary file(s?)
 # start work on class:Packet and Class:Instructions - the
-
 
 #----[Initialisation]----#
 
@@ -53,19 +52,17 @@ class Generate:
     def memory_hierarchy(Generate, config):
         hierarchy = {}
 
-        #ROM
-        rom_file = config.get('ROM_FILE_NAME')
+        # ROM
+        rom_file = config.get('ROM_FILE_NAMES') # Binary file to be loaded into ROM
         print(rom_file[-4:])
-        if rom_file[-4:] == '.s16':
-            hierarchy['rom'] = {
-                'file': rom_file,
-                'start_address': config.get('ROM_START_ADDRESS')}
+        hierarchy['rom'] = {
+            'file': rom_file,
+            'start_address': config.get('ROM_START_ADDRESS')}
 
         #RAM/Main Memory
         hierarchy['main'] = {
             'size': config.get('MAIN_MEMORY_SIZE'),
             'start_address': config.get('MAIN_START_ADDRESS')}
-
 
         #Cache
         if config.get('L1_CACHE') == True:
@@ -132,21 +129,36 @@ class Generate:
     def memory(Generate, config, memory_type):
         PAGE_SIZE = config.get("PAGE_SIZE")
         if memory_type == 'ROM':
-            START_ADDRESS = int(config.get('ROM_START_ADDRESS'), 16)
-            BYTE_CAPACITY = int(config.get('MAIN_START_ADDRESS'), 16) - START_ADDRESS
+            START_ADDRESS = int(config['ROM_START_ADDRESS'], 16)
+            BYTE_CAPACITY = int(config['MAIN_START_ADDRESS'], 16) - START_ADDRESS
+            starting_page = int(START_ADDRESS / PAGE_SIZE)
             if BYTE_CAPACITY <= 0: ### BUG: ROM address-space cannot be above RAM's address-space
                 raise ConfigError('Custom start addresses not yet supported\n -- ROM_START_ADDRESS must equal 0x0.')
+        elif memory_type == 'MAIN':
+            START_ADDRESS = int(config['MAIN_START_ADDRESS'], 16)
+            BYTE_CAPACITY = config['MAIN_MEMORY_SIZE']
+            starting_page = int(START_ADDRESS / PAGE_SIZE)
         else:
-            START_ADDRESS = int(config.get('MAIN_START_ADDRESS'), 16)
-            BYTE_CAPACITY = config.get(f"{memory_type}_MEMORY_SIZE")
+            START_ADDRESS, starting_page = 0, 0
+            BYTE_CAPACITY = config['GPR_MEMORY_SIZE']
         memory = {}
         pages = int(BYTE_CAPACITY / PAGE_SIZE) # Page -> [a, group, of, data, mapped, to, one, address]
-        starting_page = int(START_ADDRESS / PAGE_SIZE)
         for p in range(starting_page, starting_page + pages): # building the memory
             memory[f"page_{p:0x}"] = {}
             for offset in range(PAGE_SIZE >> 1): # Offset -> Address of data within a page
                 memory[f"page_{p:0x}"][f"{offset<<1:0x}"] = '0000' # Hex formatting -- pages.bit_length()-4 == log2(x)-4
         return memory
+
+    @classmethod
+    def file_to_rom(rom, config):
+        files = config['ROM_FILE_NAMES'].split()
+        file_format = config['ROM_FILE_FORMATS']
+        START_ADDRESS = config['ROM_START_ADDRESS']
+        for f in files:
+            with open(f, 'r') as active_file:
+                pass
+        pass
+
 
     @classmethod
     def reorder_buffer():
@@ -155,6 +167,7 @@ class Generate:
     @classmethod
     def memory_buffer():
         pass
+
 
     def __init__(self, config_name): # Size in bytes
     # I need to generate an instance or something of "s16" - which plops out the fully generated spec
@@ -165,7 +178,7 @@ class Generate:
         print(self.config)
         self.PAGE_SIZE = Generate.page_size(self.config) # Hardcoded to 16 Bytes. # If Gen
         self.gpr_memory = Generate.memory(self.config, 'GPR') # GPRs will technically be 16-bit + 2=bit flags -- info in docs
-
+        self.gpr_flags = {'co' : '0000', 'zr': '0000'}
         # when generating Main memory(aka s16's RAM) the starting/ending address must be taken into account
         # to properly address any extra memory, such as ROM and Ports
         # E.g. ROM addresses start and 0x0000 and end at 0x00ff, then RAM starts at 0x0100.
@@ -179,12 +192,10 @@ class Generate:
         if 'L2' in self.memory_hierarchy:
             self.l2_cache = Generate.cache(self.config, 'L2')
 
-
-
 class read:
 
     def memory(memory, address):
-        offset_bits = len(memory['page_0']).bit_length() # Any memory must have at least page_0
+        offset_bits = len(memory['page_0']).bit_length() # Any memory must have at least page_0  # BUG: Naive page address decoding
         page_key = decode.page(address, offset_bits)
         if page_key in memory:
             return memory[page_key]
@@ -219,11 +230,10 @@ class read:
             tag_index = cache[way_key]['tag'].index(tag)
             return cache[way_key]['data'][tag_index][f"{offset:0x}"]
 
-
 class write: # write.<function> modify by reference
 
     def memory(memory, address, entry):
-        offset_bits = len(memory['page_0']).bit_length() # Any memory must have at least page_0
+        offset_bits = len(memory['page_0']).bit_length() # Any memory must have at least page_0 # BUG: Naive page address decoding
         page_key = decode.page(address, offset_bits)
         if page_key in memory:
             memory[page_key] = entry
@@ -313,20 +323,20 @@ class Processor: # Class to collect generated components and allow them to inter
 
 #----Testing----#
 s16 = Generate('s16.conf') # page_size=16 Bytes -> 8*2 Byte words -> 2B = 16-bits
-tprint.memory(s16.gpr_memory, 'gpr')
+# tprint.memory(s16.gpr_memory, 'gpr')
 print(s16.gpr_memory)
 
 # tprint.memory(s16.rom, 'rom')
 # tprint.memory(s16.main_memory, 'main')
 # tprint.cache_horiz(s16.l1_data_cache, 'l1d')
-
-# tprint.cache_vert(l1_data_cache, 'L1 Cache') # Needs work >_>
-
+#
+# # tprint.cache_vert(l1_data_cache, 'L1 Cache') # Needs work >_>
+#
 #
 # # pages of data:
-# write.memory(main_mem, '0027', {'0': 'ffff', '2': '0000', '4': '0000', '6': '0000', '8': '0000', 'a': '0000', 'c': '0000', 'e': '0000'})
-# write.memory(main_mem, '0017', {'0': 'abcd', '2': 'ffff', '4': '0000', '6': '0000', '8': '0000', 'a': '0000', 'c': '0000', 'e': '0000'})
-# write.memory(main_mem, '0004', {'0': '0000', '2': '0000', '4': 'ffff', '6': '0000', '8': '0000', 'a': '0000', 'c': '0000', 'e': '0000'})
+# write.memory(s16.main_memory, '0127', {'0': 'ffff', '2': '0000', '4': '0000', '6': '0000', '8': '0000', 'a': '0000', 'c': '0000', 'e': '0000'})
+# write.memory(s16.main_memory, '0117', {'0': 'abcd', '2': 'ffff', '4': '0000', '6': '0000', '8': '0000', 'a': '0000', 'c': '0000', 'e': '0000'})
+# write.memory(s16.main_memory, '0104', {'0': '0000', '2': '0000', '4': 'ffff', '6': '0000', '8': '0000', 'a': '0000', 'c': '0000', 'e': '0000'})
 #
 
 
@@ -360,20 +370,9 @@ xxxx|op-|format-------------
 
 
 def main():
-    # Initialise s16 dictonary(?) structure
-    # loop<generate memory>:
-    #   read hierarchy
-    #   generate component
-    #   place component -> s16
-    #
-    #
-    #
-    #
-    #
-    #
-    #
-    #
-    #
-    #
     #
     pass
+
+
+if __name__ == "__main__":
+    main()
