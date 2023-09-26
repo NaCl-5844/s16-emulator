@@ -144,21 +144,35 @@ class Generate:
         memory = {}
         pages = int(BYTE_CAPACITY / PAGE_SIZE) # Page -> [a, group, of, data, mapped, to, one, address]
         for p in range(starting_page, starting_page + pages): # building the memory
-            memory[f"page_{p:0x}"] = {}
+            memory[f"page_{p:x}"] = {}
             for offset in range(PAGE_SIZE >> 1): # Offset -> Address of data within a page
-                memory[f"page_{p:0x}"][f"{offset<<1:0x}"] = '0000' # Hex formatting -- pages.bit_length()-4 == log2(x)-4
+                memory[f"page_{p:x}"][f"{offset<<1:x}"] = '0000' # Hex formatting -- pages.bit_length()-4 == log2(x)-4
         return memory
 
     @classmethod
-    def file_to_rom(rom, config):
+    def files_to_rom(Generate, rom, config):
         files = config['ROM_FILE_NAMES'].split()
-        file_format = config['ROM_FILE_FORMATS']
-        START_ADDRESS = config['ROM_START_ADDRESS']
-        for f in files:
-            with open(f, 'r') as active_file:
-                pass
-        pass
-
+        file_format = config['ROM_FILE_FORMAT']
+        START_ADDRESS = config['ROM_START_ADDRESS'][2:]
+        # print(files, file_format, START_ADDRESS) # [ DEBUG ]
+        queue, pages, page_queue = {}, {}, {}
+        queue_offset  = 0
+        for f in files: # loop A: Select files
+            with open(f"bytecode/{f}", 'r') as active_file:
+                for line, bytecode in enumerate(active_file):# loop A.B: collect bytecode from files
+                    queue[queue_offset+line] = f"{int(bytecode.strip(), 2):04x}"
+                queue_offset = len(queue.values())
+        page_key = decode.page(START_ADDRESS, 4)
+        pages.update({page_key: {}})
+        for position, bytecode in enumerate(queue.values()): # loop C: break bytecode into pages and store to ROM
+            page_offset = f"{(position<<1) % 16:x}"
+            pages[page_key].update({page_offset: bytecode})
+            # print(page_offset, page_key, pages) # [ DEBUG ]
+            if page_offset == 'e':
+                rom[page_key] = pages[page_key]
+                page_key = f"page_{int(page_key[5:], 16) + 1:x}"
+                pages.update({page_key: {}})
+        return rom
 
     @classmethod
     def reorder_buffer():
@@ -185,6 +199,7 @@ class Generate:
 
         self.main_memory = Generate.memory(self.config, 'MAIN')
         self.rom = Generate.memory(self.config, 'ROM')
+        self.rom = Generate.files_to_rom(self.rom, self.config)
         self.memory_hierarchy = Generate.memory_hierarchy(self.config) # will be used to generate memory structures correctly
         if 'L1' in self.memory_hierarchy:
             self.l1_data_cache = Generate.cache(self.config, 'L1_DATA')
@@ -202,7 +217,7 @@ class read:
         else:
             min_address = list(memory.keys())[0][5:]
             max_address = list(memory.keys())[-1][5:]
-            raise OutOfBoundAddress(f"Page 0x{page:0x} out-of-bound, page range = 0x{min_address} - 0x{max_address}")
+            raise OutOfBoundAddress(f"Page 0x{page:x} out-of-bound, page range = 0x{min_address} - 0x{max_address}")
 
     def cache(cache, main_memory, address): # upon a "miss", data must be reteived from main_memory
         way_bits = (len(cache)-1).bit_length()
@@ -225,7 +240,7 @@ class read:
             page_address = int(bin_address[:-(offset_bits)], 2) # The remaining bits address the page
             page = main_memory[f"page_{page_address:0x}"]
             print('miss...retrieving page\npage_address:',page_address,',page:', page)  # [ debug ]
-            new_entry = {'tag': tag, 'dirty': 0, 'data': page} # collecting components which make up an entry
+            new_entry = {'tag': tag, 'dirty': 0, 'data': page} # int(bin_address[0:-(offset_bits)], 2)int(bin_address[0:-(offset_bits)], 2)collecting components which make up an entry
             cache['algorithm'](cache, way_key, new_entry) # sending the entry to the replacement algorithm
             tag_index = cache[way_key]['tag'].index(tag)
             return cache[way_key]['data'][tag_index][f"{offset:0x}"]
@@ -240,7 +255,7 @@ class write: # write.<function> modify by reference
         else:
             min_address = list(memory.keys())[0][5:]
             max_address = list(memory.keys())[-1][5:]
-            raise OutOfBoundAddress(f"Page 0x{page:0x} out-of-bound, page range = 0x{min_address} - 0x{max_address}")
+            raise OutOfBoundAddress(f"Page 0x{page:x} out-of-bound, page range = 0x{min_address} - 0x{max_address}")
 
     def cache(cache, main_memory, address, data): # upon a "miss", data must be retrieved from main memory # Splitting address -> tag|way|offset
         way_bits = (len(cache)-1).bit_length()
@@ -253,7 +268,7 @@ class write: # write.<function> modify by reference
             if dirty_bit == 0: # Clean hit
                 print('hit')                                        # [ debug ]
                 offset = int(bin_address[-(offset_bits):15], 2) << 1 # Extracting the upper most bits of the address
-                cache[way_key]['data'][tag_index][f"{offset:0x}"] = data
+                cache[way_key]['data'][tag_index][f"{offset:x}"] = data
             else: # fetch newest version -- i_cache's may need to look inside d_cache for newest data -- Dirty hit
                 print('dirty hit... Finding last modified page')    # [ debug ]
                 # with just 1 level of caching, only direct accesses to main_memory will cause a page to become dirty
@@ -267,7 +282,7 @@ class write: # write.<function> modify by reference
             else: # Address out-of-range -- Raise error
                 min_address = list(memory.keys())[0][5:]
                 max_address = list(memory.keys())[-1][5:]
-                raise OutOfBoundAddress(f"Page 0x{page:0x} out-of-bound, page range = 0x{min_address} - 0x{max_address}")
+                raise OutOfBoundAddress(f"Page 0x{page:x} out-of-bound, page range = 0x{min_address} - 0x{max_address}")
 
 
 
@@ -325,6 +340,8 @@ class Processor: # Class to collect generated components and allow them to inter
 s16 = Generate('s16.conf') # page_size=16 Bytes -> 8*2 Byte words -> 2B = 16-bits
 # tprint.memory(s16.gpr_memory, 'gpr')
 print(s16.gpr_memory)
+print()
+print(s16.rom)
 
 # tprint.memory(s16.rom, 'rom')
 # tprint.memory(s16.main_memory, 'main')

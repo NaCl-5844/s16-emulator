@@ -1,10 +1,10 @@
 def page(hex_address, offset_bits):
-        bin_address = f"{int(hex_address, 16):0{16}b}" # convert address into binary -- Hardcoded 16-bit
-        page = int(bin_address[0:-(offset_bits)], 2) # The remaining bits address the page
-        print('\n#----[decode.page]----#\n','offset_bits: ',offset_bits)    # [ debug ]
-        print('bin_address: ',bin_address,'page:',page)                     # [ debug ]
-        page_key = f"page_{page:0x}"
-        return page_key
+    bin_address = f"{int(hex_address, 16):0{16}b}" # convert address into binary -- Hardcoded 16-bit
+    page = int(bin_address[0:-(offset_bits)], 2) # The remaining bits address the page
+    print('\n#----[decode.page]----#\n','offset_bits: ',offset_bits)    # [ debug ]
+    print('bin_address: ',bin_address,'page:',page)                     # [ debug ]
+    page_key = f"page_{page:0x}"
+    return page_key
 
 def way(hex_address, way_bits, offset_bits):
     bin_address = f"{int(hex_address, 16):0{16}b}" # convert address into binary -- Hardcoded 16-bit
