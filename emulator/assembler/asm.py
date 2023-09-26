@@ -131,7 +131,6 @@ def main():
     store_to_file(binary_code, output_file)
     exit()
 
-
 if __name__ == "__main__":
     main()
 

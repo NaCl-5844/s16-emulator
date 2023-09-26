@@ -17,12 +17,13 @@ import tprint
 
 # BUG LIST:
 # > ROM address-space cannot be above RAM's address-space
-# > Only binary file-types can be generted/used (THIS IS FINE FOR NOW, JUST A REMINDER)
+# > Only binary file-types can be generted/used (MAY NOT IMPLEMENT BUT ATTACH A BIN -> HEX CONVERTER SCRIPT)
 # > Naive page address decoding in class:Read and class:Write
+# > Partially filled pages do not get loaded to ROM in Generate.files_to_rom()
 
 # TODO LIST:
 # Load ROM with binary file(s?)
-# start work on class:Packet and Class:Instructions - the
+# start work on class:Packet and Class:Instructions
 
 #----[Initialisation]----#
 
@@ -159,9 +160,9 @@ class Generate:
         queue_offset  = 0
         for f in files: # loop A: Select files
             with open(f"bytecode/{f}", 'r') as active_file:
-                for line, bytecode in enumerate(active_file):# loop A.B: collect bytecode from files
+                for line, bytecode in enumerate(active_file):# loop A.B: collect bytecode from the file
                     queue[queue_offset+line] = f"{int(bytecode.strip(), 2):04x}"
-                queue_offset = len(queue.values())
+            queue_offset = len(queue.values()) # Reset the offset as a lower bound for the next file
         page_key = decode.page(START_ADDRESS, 4)
         pages.update({page_key: {}})
         for position, bytecode in enumerate(queue.values()): # loop C: break bytecode into pages and store to ROM
@@ -172,6 +173,11 @@ class Generate:
                 rom[page_key] = pages[page_key]
                 page_key = f"page_{int(page_key[5:], 16) + 1:x}"
                 pages.update({page_key: {}})
+        empty_entries = 8 - len(pages[page_key])
+        print(f"EE: {empty_entries}")
+        for i in range(empty_entries): # loop D: Fill partially filled pages
+            pages[page_key].update({f"{int(page_offset, 16)+i+1:x}": '0000'})
+        rom[page_key] = pages[page_key]
         return rom
 
     @classmethod
@@ -210,7 +216,7 @@ class Generate:
 class read:
 
     def memory(memory, address):
-        offset_bits = len(memory['page_0']).bit_length() # Any memory must have at least page_0  # BUG: Naive page address decoding
+        offset_bits = len(list(memory.values())[0]).bit_length() # Any memory must have at least page_0  # BUG: Naive page address decoding
         page_key = decode.page(address, offset_bits)
         if page_key in memory:
             return memory[page_key]
@@ -246,16 +252,15 @@ class read:
             return cache[way_key]['data'][tag_index][f"{offset:0x}"]
 
 class write: # write.<function> modify by reference
-
     def memory(memory, address, entry):
-        offset_bits = len(memory['page_0']).bit_length() # Any memory must have at least page_0 # BUG: Naive page address decoding
+        offset_bits = len(list(memory.values())[0]).bit_length() # Any memory must have at least page_0 # BUG: Naive page address decoding
         page_key = decode.page(address, offset_bits)
         if page_key in memory:
             memory[page_key] = entry
         else:
             min_address = list(memory.keys())[0][5:]
             max_address = list(memory.keys())[-1][5:]
-            raise OutOfBoundAddress(f"Page 0x{page:x} out-of-bound, page range = 0x{min_address} - 0x{max_address}")
+            raise OutOfBoundAddress(f"{page_key} out-of-bound, page range = 0x{min_address} - 0x{max_address}")
 
     def cache(cache, main_memory, address, data): # upon a "miss", data must be retrieved from main memory # Splitting address -> tag|way|offset
         way_bits = (len(cache)-1).bit_length()
@@ -284,27 +289,15 @@ class write: # write.<function> modify by reference
                 max_address = list(memory.keys())[-1][5:]
                 raise OutOfBoundAddress(f"Page 0x{page:x} out-of-bound, page range = 0x{min_address} - 0x{max_address}")
 
-
-
-    # def components(self):
-    #     if 'L1' in self.memory_hierarchy:
-    #         print('hi')
-    #         l1_data = self.memory_hierarchy['L1']['data']
-    #         self.l1_data_cache = Generate.cache(l1_data['size'], l1_data['ways'], l1_data['repl'])
-
-
-#---[Input/Output]----#
-
-
 class Processor: # Class to collect generated components and allow them to interact easily
     pass
 
 # class control:
-    """
-    [Aim]: To decode, schedule, clock, interupts and monitor all "in-flight" operations
-
-    [Varables/Objects?]: count/program_counter, clock, instruction_decode, ...
-    """
+# """
+# [Aim]: To decode, schedule, clock, interupts and monitor all "in-flight" operations
+#
+# [Varables/Objects?]: count/program_counter, clock, instruction_decode, ...
+# """
 
 # class interconnect:
 # """
@@ -336,25 +329,6 @@ class Processor: # Class to collect generated components and allow them to inter
 
 
 
-#----Testing----#
-s16 = Generate('s16.conf') # page_size=16 Bytes -> 8*2 Byte words -> 2B = 16-bits
-# tprint.memory(s16.gpr_memory, 'gpr')
-print(s16.gpr_memory)
-print()
-print(s16.rom)
-
-# tprint.memory(s16.rom, 'rom')
-# tprint.memory(s16.main_memory, 'main')
-# tprint.cache_horiz(s16.l1_data_cache, 'l1d')
-#
-# # tprint.cache_vert(l1_data_cache, 'L1 Cache') # Needs work >_>
-#
-#
-# # pages of data:
-# write.memory(s16.main_memory, '0127', {'0': 'ffff', '2': '0000', '4': '0000', '6': '0000', '8': '0000', 'a': '0000', 'c': '0000', 'e': '0000'})
-# write.memory(s16.main_memory, '0117', {'0': 'abcd', '2': 'ffff', '4': '0000', '6': '0000', '8': '0000', 'a': '0000', 'c': '0000', 'e': '0000'})
-# write.memory(s16.main_memory, '0104', {'0': '0000', '2': '0000', '4': 'ffff', '6': '0000', '8': '0000', 'a': '0000', 'c': '0000', 'e': '0000'})
-#
 
 
 
@@ -387,7 +361,13 @@ xxxx|op-|format-------------
 
 
 def main():
-    #
+    s16 = Generate('s16.conf') # page_size=16 Bytes -> 8*2 Byte words -> 2B = 16-bits
+    tprint.memory(s16.rom, 'rom')
+    # tprint.memory(s16.gpr_memory, 'gpr')
+    tprint.memory(s16.main_memory, 'main')
+    # tprint.cache_horiz(s16.l1_data_cache, 'l1d')
+    write.memory(s16.main_memory, '0080', s16.rom['page_0'])
+    tprint.memory(s16.main_memory, 'main')
     pass
 
 
