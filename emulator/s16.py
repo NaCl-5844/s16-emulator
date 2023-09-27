@@ -196,13 +196,10 @@ class Generate:
 
         self.config = Generate.config(config_name) # Take s16.conf key-values and place in dictionary
         print(self.config)
-        self.PAGE_SIZE = Generate.page_size(self.config) # Hardcoded to 16 Bytes. # If Gen
+        self.PAGE_SIZE = Generate.page_size(self.config) # Hardcoded to 16 Bytes
         self.gpr_memory = Generate.memory(self.config, 'GPR') # GPRs will technically be 16-bit + 2=bit flags -- info in docs
         self.gpr_flags = {'co' : '0000', 'zr': '0000'}
-        # when generating Main memory(aka s16's RAM) the starting/ending address must be taken into account
-        # to properly address any extra memory, such as ROM and Ports
-        # E.g. ROM addresses start and 0x0000 and end at 0x00ff, then RAM starts at 0x0100.
-
+        self.program_counter = {}
         self.main_memory = Generate.memory(self.config, 'MAIN')
         self.rom = Generate.memory(self.config, 'ROM')
         self.rom = Generate.files_to_rom(self.rom, self.config)
@@ -212,6 +209,7 @@ class Generate:
             self.l1_inst_cache = Generate.cache(self.config, 'L1_INST')
         if 'L2' in self.memory_hierarchy:
             self.l2_cache = Generate.cache(self.config, 'L2')
+
 
 class read:
 
@@ -223,7 +221,7 @@ class read:
         else:
             min_address = list(memory.keys())[0][5:]
             max_address = list(memory.keys())[-1][5:]
-            raise OutOfBoundAddress(f"Page 0x{page:x} out-of-bound, page range = 0x{min_address} - 0x{max_address}")
+            raise OutOfBoundAddress(f"{page_key} out-of-bound, page range = 0x{min_address} - 0x{max_address}")
 
     def cache(cache, main_memory, address): # upon a "miss", data must be reteived from main_memory
         way_bits = (len(cache)-1).bit_length()
@@ -364,7 +362,7 @@ def main():
     s16 = Generate('s16.conf') # page_size=16 Bytes -> 8*2 Byte words -> 2B = 16-bits
     tprint.memory(s16.rom, 'rom')
     # tprint.memory(s16.gpr_memory, 'gpr')
-    tprint.memory(s16.main_memory, 'main')
+    # tprint.memory(s16.main_memory, 'main')
     # tprint.cache_horiz(s16.l1_data_cache, 'l1d')
     write.memory(s16.main_memory, '0080', s16.rom['page_0'])
     tprint.memory(s16.main_memory, 'main')
