@@ -11,7 +11,7 @@ xxxx|op-|format-------------
 0110 sbb 000xxxx-ccc-bbb-aaa
 0111 abs 000xxxx-ccc-sss-aaa sss: abs neg sxt two inv
 1000 bd  000xxxx-ccc-sss-aaa sss: lzc tzc bc  bfm bfl bvl bvm / bd: bit data / bf[l/m] = [l/m]sb / bv[l/m] = value
-1001 lim 000xxxx-cnn-nnn-nnn   c: r0,r4 / n..: sign extended ±127
+1001 lim 000xxxx-ccn-nnn-nnn   c: r0,r4 / n..: sign extended ±127
 1010 bsh 000xxxx-sss-bbb-aaa sss: bsl bsr asr csl csr
 1011 ls  000xxxx-sss-bbb-aaa sss: ldb ldw ldp stb stw stp mv  cmv / [b]yte [w]ord=2B [p]age=2B*8
 1100 cmp 000xxxx-sss-bbb-aaa sss: sn  lt  le  eq  gt  ge  slt sgt / return: false=0 true=1 /
