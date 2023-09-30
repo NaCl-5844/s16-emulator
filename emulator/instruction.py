@@ -1,143 +1,133 @@
 #!/usr/bin/env python
 # I need to find a way to incorporate the cycle cost of each instruction... eventually
 
-def s16_ior():
+def s16_ior(cpu, instruction):
     pass
-def s16_and():
+def s16_and(cpu, instruction):
     pass
-def s16_xor():
+def s16_xor(cpu, instruction):
     pass
-def s16_abs():
+def s16_abs(cpu, instruction):
     pass
-def s16_bs():
+def s16_bs(cpu, instruction):
     pass
-def s16_neg():
+def s16_neg(cpu, instruction):
     pass
-def s16_sxt():
+def s16_sxt(cpu, instruction):
     pass
-def s16_two():
+def s16_two(cpu, instruction):
     pass
-def s16_inv():
+def s16_inv(cpu, instruction):
     pass
-def s16_add():
+def s16_add(cpu, instruction):
     pass
-def s16_adc():
+def s16_adc(cpu, instruction):
     pass
-def s16_sub():
+def s16_sub(cpu, instruction):
     pass
-def s16_sbb():
+def s16_sbb(cpu, instruction):
     pass
-def s16_bsl():
+def s16_bsl(cpu, instruction):
     pass
-def s16_bsr():
+def s16_bsr(cpu, instruction):
     pass
-def s16_asr():
+def s16_asr(cpu, instruction):
     pass
-def s16_csl():
+def s16_csl(cpu, instruction):
     pass
-def s16_csr():
+def s16_csr(cpu, instruction):
     pass
-def s16_lzc():
+def s16_lzc(cpu, instruction):
     pass
-def s16_tzc():
+def s16_tzc(cpu, instruction):
     pass
-def s16_bc():
+def s16_bc(cpu, instruction):
     pass
-def s16_bfm():
+def s16_bfm(cpu, instruction):
     pass
-def s16_bfl():
+def s16_bfl(cpu, instruction):
     pass
-def s16_bvl():
+def s16_bvl(cpu, instruction):
     pass
-def s16_bvm():
+def s16_bvm(cpu, instruction):
     pass
-def s16_lim():
+def s16_lim(cpu, instruction):
     pass
-def s16_ldb():
+def s16_ldb(cpu, instruction):
     pass
-def s16_ldw():
+def s16_ldw(cpu, instruction):
     pass
-def s16_ldp():
+def s16_ldp(cpu, instruction):
     pass
-def s16_stb():
+def s16_stb(cpu, instruction):
     pass
-def s16_stw():
+def s16_stw(cpu, instruction):
     pass
-def s16_stp():
+def s16_stp(cpu, instruction):
     pass
-def s16_mv():
+def s16_mv(cpu, instruction):
     pass
-def s16_cmv():
+def s16_cmv(cpu, instruction):
     pass
-def s16_sn():
+def s16_sn(cpu, instruction):
     pass
-def s16_lt():
+def s16_lt(cpu, instruction):
     pass
-def s16_le():
+def s16_le(cpu, instruction):
     pass
-def s16_eq():
+def s16_eq(cpu, instruction):
     pass
-def s16_gt():
+def s16_gt(cpu, instruction):
     pass
-def s16_ge():
+def s16_ge(cpu, instruction):
     pass
-def s16_slt():
+def s16_slt(cpu, instruction):
     pass
-def s16_sgt():
+def s16_sgt(cpu, instruction):
     pass
-def s16_tio():
+def s16_tio(cpu, instruction):
     pass
-def s16_tno():
+def s16_tno(cpu, instruction):
     pass
-def s16_tan():
+def s16_tan(cpu, instruction):
     pass
-def s16_tna():
+def s16_tna(cpu, instruction):
     pass
-def s16_txn():
+def s16_txn(cpu, instruction):
     pass
-def s16_tim():
+def s16_tim(cpu, instruction):
     pass
-def s16_tni():
+def s16_tni(cpu, instruction):
     pass
-def s16_tfc():
+def s16_tfc(cpu, instruction):
     pass
-def s16_jal():
+def s16_jal(cpu, instruction):
     pass
-def s16_jrr():
+def s16_jrr(cpu, instruction):
     pass
-def s16_jrd():
+def s16_jrd(cpu, instruction):
     pass
-def s16_jir():
+def s16_jir(cpu, instruction):
     pass
-def s16_cjr():
+def s16_cjr(cpu, instruction):
     pass
-def s16_cjd():
+def s16_cjd(cpu, instruction):
     pass
-def s16_cji():
+def s16_cji(cpu, instruction):
     pass
-def s16_ret():
+def s16_ret(cpu, instruction):
     pass
-def s16_int():
+def s16_int(cpu, instruction):
     pass
 
-
-# formats = {
-#     0: 'XXXXXXXCCCBBBAAA',
-#     1: 'XXXXXXXCCCSSSAAA',
-#     2: 'XXXXXXXCCNNNNNNN',
-#     3: 'XXXXXXXSSSBBBAAA',
-#     4: 'XXXXXXXSSSNNNNNN',
-#     5: 'XXXXXXXNNNNNNNNN',
-#     }
 def err():
         raise KeyError('Operation does not exist')
 
-def format_decode(raw_instruction):
+def decode(raw_instruction):
     operation_code = raw_instruction[:7]
     upper_sub_instruction = raw_instruction[7:10]
     mid_sub_instruction = raw_instruction[10:13]
     lower_sub_instruction = raw_instruction[13:]
-
     c = int(operation_code, 2)
     s = int(upper_sub_instruction, 2)
     format_range = {
@@ -148,13 +138,11 @@ def format_decode(raw_instruction):
         (c==14)&(s>4)               : 'XXXXXXXSSSNNNNNN',
         c==15                       : 'XXXXXXXNNNNNNNNN',
         }
-
-    print(format_range[True])
+    print(f"{format_range[True]}\n{raw_instruction}") # [ DEBUG ]
     if format_range[True] == 'XXXXXXXCCNNNNNNN':
         upper_sub_instruction = raw_instruction[7:9]
         mid_sub_instruction = raw_instruction[9:13]
-    print(raw_instruction, operation_code, upper_sub_instruction, mid_sub_instruction, lower_sub_instruction)
-
+    # print(operation_code, upper_sub_instruction, mid_sub_instruction, lower_sub_instruction) # [ DEBUG ]
     i = operation_code[3:7]
     u = upper_sub_instruction
     m = mid_sub_instruction
@@ -178,19 +166,16 @@ def format_decode(raw_instruction):
         i=='1110': {u=='000': s16_jal ,u=='001': s16_jrr ,u=='010': s16_jrd ,u=='011': s16_cjr ,u=='100': s16_cjd ,u=='101': s16_cji ,u=='110': s16_jir ,u=='111': s16_ret},
         i=='1111': {True: s16_int},
         }
-    print(instruction_decode[True][True])
     print(instruction_decode)
+    print(instruction_decode[True][True])
+    return instruction_decode[True][True]
 
-
-format_decode('0001001001111101')
-
-
-
-
+decode('0001001001111101')
 
 
 
-# '000':  ,'001':  ,'010':  ,'011':  ,'100':  ,'101':  ,'110':  ,'111':
+
+
 
 
 
