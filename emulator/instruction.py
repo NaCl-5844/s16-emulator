@@ -1,8 +1,11 @@
 #!/usr/bin/env python
+from decode import register as r
+
 # I need to find a way to incorporate the cycle cost of each instruction... eventually
 
-def s16_ior(cpu, instruction):
-    pass
+def s16_ior(cpu, a, b, c):
+    cpu.register[r(c)] = f"{int(cpu.register(r(a)), 16) | int(cpu.register(r(b)), 16):04x}"
+
 def s16_and(cpu, instruction):
     pass
 def s16_xor(cpu, instruction):
@@ -123,7 +126,7 @@ def s16_int(cpu, instruction):
 def err():
         raise KeyError('Operation does not exist')
 
-def decode(raw_instruction):
+def decode(raw_instruction :bin):
     operation_code = raw_instruction[:7]
     upper_sub_instruction = raw_instruction[7:10]
     mid_sub_instruction = raw_instruction[10:13]
@@ -131,12 +134,12 @@ def decode(raw_instruction):
     c = int(operation_code, 2)
     s = int(upper_sub_instruction, 2)
     format_range = {
-        0<=c<=6                     : 'XXXXXXXCCCBBBAAA',
-        7<=c<=8                     : 'XXXXXXXCCCSSSAAA',
-        c==9                        : 'XXXXXXXCCNNNNNNN',
-        (10<=c<=13)|((c==14)&(s<5)) : 'XXXXXXXSSSBBBAAA',
-        (c==14)&(s>4)               : 'XXXXXXXSSSNNNNNN',
-        c==15                       : 'XXXXXXXNNNNNNNNN',
+        0<=c<=6                     : 'XXXXXXXCCCBBBAAA', # format: 0
+        7<=c<=8                     : 'XXXXXXXCCCSSSAAA', # format: 1
+        c==9                        : 'XXXXXXXCCNNNNNNN', # format: 2
+        (10<=c<=13)|((c==14)&(s<5)) : 'XXXXXXXSSSBBBAAA', # format: 3
+        (c==14)&(s>4)               : 'XXXXXXXSSSNNNNNN', # format: 4
+        c==15                       : 'XXXXXXXNNNNNNNNN', # format: 5
         }
     print(f"{format_range[True]}\n{raw_instruction}") # [ DEBUG ]
     if format_range[True] == 'XXXXXXXCCNNNNNNN':
@@ -156,24 +159,22 @@ def decode(raw_instruction):
         i=='0100': {True: s16_adc},
         i=='0101': {True: s16_sub},
         i=='0110': {True: s16_sbb},
-        i=='0111': {m=='000': s16_abs ,m=='001': s16_bs ,m=='010': s16_neg ,m=='011': s16_sxt ,m=='100': s16_two ,m=='101': s16_inv ,m=='110': err ,m=='111': err},
-        i=='1000': {m=='000': s16_lzc ,m=='001': s16_tzc ,m=='010': s16_bc ,m=='011': s16_bfm ,m=='100': s16_bfl ,m=='101': s16_bvm ,m=='110': s16_bvl ,m=='111': err},
+        i=='0111': {m=='000': s16_abs, m=='001': s16_bs,  m=='010': s16_neg, m=='011': s16_sxt, m=='100': s16_two, m=='101': s16_inv, m=='110': err,     m=='111': err},
+        i=='1000': {m=='000': s16_lzc, m=='001': s16_tzc, m=='010': s16_bc,  m=='011': s16_bfm, m=='100': s16_bfl, m=='101': s16_bvm, m=='110': s16_bvl, m=='111': err},
         i=='1001': {True: s16_lim},
-        i=='1010': {u=='000': s16_bsl ,u=='001': s16_bsr ,u=='010': s16_asr ,u=='011': s16_csl ,u=='100': s16_csr ,u=='101': err ,u=='110': err ,u=='111': err},
-        i=='1011': {u=='000': s16_ldb ,u=='001': s16_ldw ,u=='010': s16_ldp ,u=='011': s16_stb ,u=='100': s16_stw ,u=='101': s16_stp ,u=='110': s16_mv ,u=='111': s16_cmv},
-        i=='1100': {u=='000': s16_sn ,u=='001': s16_lt ,u=='010': s16_le ,u=='011': s16_eq ,u=='100': s16_gt ,u=='101': s16_ge ,u=='110': s16_slt ,u=='111': s16_sgt},
-        i=='1101': {u=='000': s16_tio ,u=='001': s16_tno ,u=='010': s16_tan ,u=='011': s16_tna ,u=='100': s16_txn ,u=='101': s16_tim ,u=='110': s16_tni ,u=='111': s16_tfc},
-        i=='1110': {u=='000': s16_jal ,u=='001': s16_jrr ,u=='010': s16_jrd ,u=='011': s16_cjr ,u=='100': s16_cjd ,u=='101': s16_cji ,u=='110': s16_jir ,u=='111': s16_ret},
+        i=='1010': {u=='000': s16_bsl, u=='001': s16_bsr, u=='010': s16_asr, u=='011': s16_csl, u=='100': s16_csr, u=='101': err,     u=='110': err,     u=='111': err},
+        i=='1011': {u=='000': s16_ldb, u=='001': s16_ldw, u=='010': s16_ldp, u=='011': s16_stb, u=='100': s16_stw, u=='101': s16_stp, u=='110': s16_mv,  u=='111': s16_cmv},
+        i=='1100': {u=='000': s16_sn,  u=='001': s16_lt,  u=='010': s16_le,  u=='011': s16_eq,  u=='100': s16_gt,  u=='101': s16_ge,  u=='110': s16_slt, u=='111': s16_sgt},
+        i=='1101': {u=='000': s16_tio, u=='001': s16_tno, u=='010': s16_tan, u=='011': s16_tna, u=='100': s16_txn, u=='101': s16_tim, u=='110': s16_tni, u=='111': s16_tfc},
+        i=='1110': {u=='000': s16_jal, u=='001': s16_jrr, u=='010': s16_jrd, u=='011': s16_cjr, u=='100': s16_cjd, u=='101': s16_cji, u=='110': s16_jir, u=='111': s16_ret},
         i=='1111': {True: s16_int},
         }
-    print(instruction_decode)
-    print(instruction_decode[True][True])
-    return instruction_decode[True][True]
+    return (instruction_decode[True][True], u, m, l)
 
-decode('0001001001111101')
+decode('0000000001111101')
 
 
-
+print(r('001'))
 
 
 

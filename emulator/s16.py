@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 from customExceptions import *
+import collections
 import assembler.asm
+import instruction
 import replacement
 import decode
 import tprint
@@ -181,11 +183,8 @@ class Generate:
         return rom
 
     @classmethod
-    def reorder_buffer():
-        pass
-
-    @classmethod
-    def memory_buffer():
+    def fifo_buffer(Generate, config, memory_type):
+        # use collections.deque
         pass
 
 
@@ -197,9 +196,9 @@ class Generate:
         self.config = Generate.config(config_name) # Take s16.conf key-values and place in dictionary
         print(self.config)
         self.PAGE_SIZE = Generate.page_size(self.config) # Hardcoded to 16 Bytes
-        self.gpr_memory = Generate.memory(self.config, 'GPR') # GPRs will technically be 16-bit + 2=bit flags -- info in docs
-        self.gpr_flags = {'co' : '0000', 'zr': '0000'}
-        self.program_counter = {}
+        self.register = Generate.memory(self.config, 'GPR') # GPRs will technically be 16-bit + 2=bit flags -- info in docs
+        self.register_flags = {'co' : '0000', 'zr': '0000'}
+        self.program_counter = {'count': 0, 'offset': 2}
         self.main_memory = Generate.memory(self.config, 'MAIN')
         self.rom = Generate.memory(self.config, 'ROM')
         self.rom = Generate.files_to_rom(self.rom, self.config)
@@ -361,12 +360,14 @@ xxxx|op-|format-------------
 def main():
     s16 = Generate('s16.conf') # page_size=16 Bytes -> 8*2 Byte words -> 2B = 16-bits
     tprint.memory(s16.rom, 'rom')
-    # tprint.memory(s16.gpr_memory, 'gpr')
+    tprint.memory(s16.register, 'gpr')
     # tprint.memory(s16.main_memory, 'main')
     # tprint.cache_horiz(s16.l1_data_cache, 'l1d')
     write.memory(s16.main_memory, '0080', s16.rom['page_0'])
     tprint.memory(s16.main_memory, 'main')
-    pass
+
+    while i < 10:
+
 
 
 if __name__ == "__main__":
