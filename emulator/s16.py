@@ -113,17 +113,19 @@ class Generate:
         if tags_per_way == 0:
             raise CacheCapacityError(f"Insufficient <BYTE_CAPACITY> for the number of <WAYS>\nMinimum <BYTE_CAPACITY> == WAYS*PAGE_SIZE = {WAYS*PAGE_SIZE}")
         if WAYS < 2: # Other functions require, at least, a 'way_0' key to access the data inside a cache
-            cache['way_0'] = {'tag': [], 'dirty':[], 'data': []}
+            cache['way_0'] = {'tag': [], 'new':[], 'dirty':[], 'data': []}
             for a in range(tags_per_way): # Generate a initialised dictionary/page with offset(0 to f): 0000 (hex)
-                cache['way_0']['tag'].insert(0, '0000') # Need to implement variable tag size
+                cache['way_0']['tag'].insert(0, '0000') # tag holds upper section of address
+                cache['way_0']['new'].insert(0, 1) # new/accessed aids prefetching
                 cache['way_0']['data'].insert(0, {f"{offset<<1:0{PAGE_SIZE.bit_length()-4}x}": '0000' for offset in range(PAGE_SIZE>>1)}) # bit_length() ~ log2
                 cache['way_0']['dirty'].insert(0, 0) # https://en.wikipedia.org/wiki/Dirty_bit
         else:
             for w in range(WAYS): # WAYS, as in, x-way set-associative
                 way_key = f"way_{w:x}" # way_{hex(w)}
-                cache[way_key] = {'tag': [], 'dirty':[], 'data': []}
+                cache[way_key] = {'tag': [], 'new':[], 'dirty':[], 'data': []}
                 for a in range(tags_per_way): # Generate a initialised dictionary/page with offset(0 to f): 0000 (hex)
-                    cache[way_key]['tag'].insert(0, '0000') # Need to implement variable tag size
+                    cache[way_key]['tag'].insert(0, '0000') # tag holds upper section of address
+                    cache[way_key]['new'].insert(0, 1) # new/accessed aids  prefetching
                     cache[way_key]['data'].insert(0, {f"{offset<<1:0{PAGE_SIZE.bit_length()-4}x}": '0000' for offset in range(PAGE_SIZE>>1)}) # bit_length() ~ log2
                     cache[way_key]['dirty'].insert(0, 0) # https://en.wikipedia.org/wiki/Dirty_bit
         return cache # cache['way_x']['tag'/'data']
@@ -189,10 +191,6 @@ class Generate:
 
 
     def __init__(self, config_name): # Size in bytes
-    # I need to generate an instance or something of "s16" - which plops out the fully generated spec
-    # this may help:
-    # https://stackoverflow.com/questions/24253761/how-do-you-call-an-instance-of-a-class-in-python
-
         self.config = Generate.config(config_name) # Take s16.conf key-values and place in dictionary
         print(self.config)
         self.PAGE_SIZE = Generate.page_size(self.config) # Hardcoded to 16 Bytes
@@ -208,6 +206,13 @@ class Generate:
             self.l1_inst_cache = Generate.cache(self.config, 'L1_INST')
         if 'L2' in self.memory_hierarchy:
             self.l2_cache = Generate.cache(self.config, 'L2')
+
+    def prefetch(self):
+        # check reference_prediction_table if stride == 0 for current tag & state ==
+        # if cache[way_x][new][page] == False: # The page has been accessed -> NOT "new"
+        #   pc_address = get_current_pc_address
+        #
+        pass
 
 
 class read:
@@ -359,15 +364,25 @@ xxxx|op-|format-------------
 
 def main():
     s16 = Generate('s16.conf') # page_size=16 Bytes -> 8*2 Byte words -> 2B = 16-bits
-    tprint.memory(s16.rom, 'rom')
-    tprint.memory(s16.register, 'gpr')
-    # tprint.memory(s16.main_memory, 'main')
+    # tprint.memory(s16.rom, 'rom')
+    # tprint.memory(s16.register, 'gpr')
+    # # tprint.memory(s16.main_memory, 'main')
     # tprint.cache_horiz(s16.l1_data_cache, 'l1d')
-    write.memory(s16.main_memory, '0080', s16.rom['page_0'])
-    tprint.memory(s16.main_memory, 'main')
+    # write.memory(s16.main_memory, '0080', s16.rom['page_0'])
+    # tprint.memory(s16.main_memory, 'main')
 
-    while i < 10:
+    print(s16.l1_data_cache)
 
+
+    i=0
+    while i < 0:
+        print(i)
+        # Prefetch to I-Cache
+        # commit instruction to ROB
+        # decode instruction
+        # execute
+        # writeback ready ROB entry
+        i+=1
 
 
 if __name__ == "__main__":
