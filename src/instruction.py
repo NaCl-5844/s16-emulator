@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 from decode import register as r
 
 # I need to find a way to incorporate the cycle cost of each instruction... eventually
@@ -171,10 +170,7 @@ def decode(raw_instruction :bin):
         }
     return (instruction_decode[True][True], u, m, l)
 
-decode('0000000001111101')
 
-
-print(r('001'))
 
 
 

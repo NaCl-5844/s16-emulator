@@ -70,6 +70,18 @@ ret 0001110-111-NNN-NNN XXXXXXX-SSS-NNN-NNN
 int 0001111-NNN-NNN-NNN XXXXXXX-NNN-NNN-NNN f5
 
 
+
+
+# formats = {
+    #     0: 'XXXXXXXCCCBBBAAA',
+    #     1: 'XXXXXXXCCCSSSAAA',
+    #     2: 'XXXXXXXCCNNNNNNN',
+    #     3: 'XXXXXXXSSSBBBAAA',
+    #     4: 'XXXXXXXSSSNNNNNN',
+    #     5: 'XXXXXXXNNNNNNNNN',
+    #     }
+
+
 ior
 and
 xor

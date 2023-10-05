@@ -9,7 +9,7 @@ def memory(memory, name):
         print('Page sizes >8 are yet to be implemented')
     print("}\n")
 
-def cache_horiz(cache, name):
+def cache(cache, name):
     print(f"{name}","{\n\n","\ttag\t\b\b\b0x0  0x2  0x4  0x6  0x8  0xa  0xc  0xe\n") # Hardcoded for simplicity
     replacement_algorithm = cache.pop('algorithm') # Not sure how else to get around this
     for way in cache:
