@@ -12,7 +12,9 @@ def way(hex_address, way_bits, offset_bits):
     way_key = f"way_{int(way, 2):x}"
     # print('\n#----[decode.way]----#\n','\bway_bits:',way_bits-1,'offset_bits:',offset_bits) # [ debug ]
     # print(f"bin_address: 0b{bin_address}, way: 0b{way}")                                    # [ debug ]
-    return bin_address, way_key
+    tag = f"{int(bin_address[way_bits:-(offset_bits+1)], 2):0{4}x}"
+    offset = int(bin_address[-(offset_bits):15], 2) << 1 # Extracting the upper most bits of the address
+    return tag, way_key, offset
 
 def register(register_address):
     translate = { # 2-bit, 3-bit and 4-bit register addresses
