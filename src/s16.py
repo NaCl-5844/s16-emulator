@@ -16,6 +16,11 @@ import tprint
 # Cache:
 #   - https://en.wikipedia.org/wiki/Cache_placement_policies#Set-associative_cache
 #   - https://www.geeksforgeeks.org/write-through-and-write-back-in-cache
+# Dirty Bit:
+#   - Don't get the order mixed up:
+#       * When page is modified, the dirty bit is set to True
+#       * Upon eviction, the modified page needs go through the write-back process
+#   - https://en.wikipedia.org/wiki/Dirty_bit
 # Adding date and time to a file:
 #   - https://www.geeksforgeeks.org/how-to-create-filename-containing-date-or-time-in-python/
 
@@ -342,19 +347,20 @@ class Generate:
         hits        = 0
         live_cache  = [cache for cache in self.cache_hierarchy] # order: l1_data?, l1_inst?, l2?
         print(live_cache)
-        for entry in live_cache:
-            way_bits = hierarchy[entry]['config']['ways']
+        for current_cache in live_cache: # [(current, next), (current, next)...]
+            way_bits = hierarchy[current_cache]['config']['ways']
             tag, way_key, offset = decode.way(source_address, way_bits, offset_bits) # decodes address into TAG|WAY|OFFSET
-            if tag in hierarchy[entry]['unit'][way_key]['tag']:
-                cache     = hierarchy[entry]['unit']
+            if tag in hierarchy[current_cache]['unit'][way_key]['tag']:
+                cache     = hierarchy[current_cache]['unit']
                 tag_index = cache[way_key]['tag'].index(tag)
                 dirty_bit = cache[way_key]['dirty'][tag_index]
-                if (dirty_bit == 0): # HIT -- read value into register
-                    hits     += 1
-                    print('------', hits)
-                    # Hits will set 'new' to 0
-                    # sink[decode.register(sink_address)] = source[way_key]['data']
-                else:
+                if (dirty_bit == 0) & (current_cache=='l1_data'): # HIT -- read value into register
+                    hits += 1
+                    print('hit in', current_cache,'-- total hits:', hits)
+                    sink_page, sink_offset = decode.register(sink_address)
+                    self.l1_data_cache[way_key]['new'][tag_index] = 0 # Hits will set 'new' to 0
+                    register[sink_page][sink_offset] = self.l1_data_cache[way_key]['data'][tag_index][str(sink_offset)]
+
                     continue
         if (hits == 0) & ('l1_data' in live_cache): # all caches miss ->  move combined_memory[page] into l1_data cache
         # s16 uses write-back, see [ NOTE ]
@@ -368,12 +374,12 @@ class Generate:
                 old_data      = self.l1_data_cache[way_key]['data'][old_tag_index]
                 l2_tag, l2_way_key, l2_offset = decode.way(source_address, hierarchy['l2']['config']['ways'], offset_bits)
                 old_l1d_entry = {'tag': l2_tag, 'new': 1, 'data': old_data, 'dirty': 0}
-                self.l2_cache['algorithm'](self.l2_cache, l2_way_key, entry)
+                self.l2_cache['algorithm'](self.l2_cache, l2_way_key, entry)  # [lru/lfu/etc..](cache, way, entry)
             elif (old_dirty_bit == 0) : # evicted entry moved to main_memory
                 print('Moving Old entry to main_memory')
                 old_new_flag  = self.l1_data_cache[way_key]['new'][old_tag_index]
                 old_data      = self.l1_data_cache[way_key]['data'][old_tag_index]
-            self.l1_data_cache['algorithm'](self.l1_data_cache, way_key, entry) # [lru/lfu/etc..](l1_cache, way, entry)
+            self.l1_data_cache['algorithm'](self.l1_data_cache, way_key, entry) # [lru/lfu/etc..](cache, way, entry)
             tag_index = self.l1_data_cache[way_key]['tag'].index(tag)
             sink_page, sink_offset = decode.register(sink_address)
             register[sink_page][sink_offset] = self.l1_data_cache[way_key]['data'][tag_index][str(sink_offset)]
