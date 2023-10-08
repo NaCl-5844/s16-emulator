@@ -13,6 +13,13 @@ def lru(cache, way_key, new_entry): # Least Recently Used
     cache[way_key]['dirty'][0] = new_entry['dirty']
 
 
+def lru_deque(cache, way_key, new_entry): # Least Recently Used
+    # BUG: does not return the replaced entry
+    # -- doesn't work anyway if this function updates by reference >_>
+    cache[way_key]['tag'].insert(0, new_entry['tag'])
+    cache[way_key]['new'].insert(0, new_entry['new'])
+    cache[way_key]['data'].insert(0, new_entry['data'])
+    cache[way_key]['dirty'].insert(0, new_entry['dirty'])
 
 def lfu(cache, way, new_entry): # least frequently used
     return 0

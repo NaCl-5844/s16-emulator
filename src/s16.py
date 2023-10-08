@@ -32,14 +32,15 @@ import tprint
 # > Only binary file-types can be generted/used (MAY NOT IMPLEMENT BUT ATTACH A BIN -> HEX CONVERTER SCRIPT)
 
 # TODO LIST:
-# > Make a basic single cycle loop to test the: pc, read, write, l1_inst_cache and instruction.decode
-# >
-# >
-# >
-# >
-# > (don't do this yet plz, thx brain)
+# > (lol nvm lets do this now)
 # > REFACTOR: read.cache() and write.cache. I've gained more knowledge on flag usage and deques
-#           and can simplify the code a bunch. Also update the lru replacemeny function.
+#       - Modify Generate.cache()
+#       - Update the lru replacemeny functions
+# > Find a way to offload cache heirarchy into <module>replacement logic?
+# >
+# >
+# >
+# > Make a basic single cycle loop to test the: pc, read, write, l1_inst_cache and instruction.decode
 
 
 
@@ -163,8 +164,6 @@ class Generate:
     @classmethod
     def cache_hierarchy(Generate, config):
         hierarchy = {}
-
-
         # Complicated way to test if config file warrents a given cache structure
         if config.get('L1_CACHE') == True:
             hierarchy['l1_data'], hierarchy['l1_inst'] = {}, {}
@@ -192,15 +191,13 @@ class Generate:
                 del hierarchy['l2']
         return hierarchy
 
-    @classmethod ### Not sure I need this due to PAGE_SIZE being inside config
+    @classmethod ### PAGE_SIZE is set inside the config but due to the code not being functional, heres a sanity check
     def page_size(Generate, config):
         PAGE_SIZE = config.get('PAGE_SIZE')
-        if PAGE_SIZE != 16: # HARDCODED
+        if PAGE_SIZE != 16: # HARDCODED 8*16-bit words
             raise ConfigError
         else:
             return PAGE_SIZE
-
-
 
     @classmethod
     def cache(Generate, config, memory_type): # generating collections.deque instead of lists can improve the code and functionality
@@ -224,12 +221,6 @@ class Generate:
                 cache['way_0']['data'].insert(0, {f"{offset:0{PAGE_SIZE.bit_length()-4}x}": '0000' for offset in range(PAGE_SIZE>>1)}) # bit_length() ~ log2
                 cache['way_0']['dirty'].insert(0, 1) # https://en.wikipedia.org/wiki/Dirty_bit
         else:
-
-
-
-
-
-
             for w in range(WAYS): # WAYS, as in, x-way set-associative
                 way_key = f"way_{w:x}" # way_{hex(w)}
                 cache[way_key] = {'tag': [], 'new':[], 'dirty':[], 'data': []}
@@ -238,6 +229,37 @@ class Generate:
                     cache[way_key]['new'].insert(0, 1) # new/accessed aids  prefetching
                     cache[way_key]['data'].insert(0, {f"{offset:0{PAGE_SIZE.bit_length()-4}x}": '0000' for offset in range(PAGE_SIZE>>1)}) # bit_length() ~ log2
                     cache[way_key]['dirty'].insert(0, 1) # https://en.wikipedia.org/wiki/Dirty_bit
+        return cache # cache['way_x']['tag'/'data']
+
+
+    @classmethod
+    def cache_deque(Generate, config, memory_type): # generating collections.deque instead of lists can improve the code and functionality
+        # https://en.wikipedia.org/wiki/Cache_placement_policies#Set-associative_cache
+        cache                 = {} # cache decoding: way | tag | offset
+        WAYS                  = config.get(f"{memory_type}_CACHE_WAYS")
+        PAGE_SIZE             = config.get('PAGE_SIZE')
+        BYTE_CAPACITY         = config.get(f"{memory_type}_CACHE_SIZE")
+        tag_count             = int(BYTE_CAPACITY / PAGE_SIZE) # minimum BYTE_CAPACITY == WAYS*PAGE_SIZE
+        tags_per_way          = int(tag_count / WAYS)
+        replacement_algorithm = config.get(f"{memory_type}_CACHE_REPL")
+        cache['algorithm']    = eval(f"replacement.{replacement_algorithm}")
+        # print('tc: ',tag_count, 'tpw: ', tags_per_way) # [ debug ]
+        if tags_per_way == 0:
+            raise CacheCapacityError(f"Insufficient <BYTE_CAPACITY> for the number of <WAYS>\nMinimum <BYTE_CAPACITY> == WAYS*PAGE_SIZE = {WAYS*PAGE_SIZE}")
+        if WAYS < 2: # Other functions require, at least, a 'way_0' key to access the data inside a cache
+            ache['way_0'] = {
+            'tag': collections.deque([], tags_per_way),  # tag holds upper section of address
+            'new':collections.deque([], tags_per_way), # new/accessed aids prefetching
+            'data': collections.deque([], tags_per_way),
+            'dirty':collections.deque([], tags_per_way)} # https://en.wikipedia.org/wiki/Dirty_bit
+        else:
+            for w in range(WAYS): # WAYS, as in, x-way set-associative
+                way_key = f"way_{w:x}" # way_{hex(w)}
+                cache[way_key] = {
+                    'tag': collections.deque([], tags_per_way),
+                    'new':collections.deque([], tags_per_way),
+                    'data': collections.deque([], tags_per_way),
+                    'dirty':collections.deque([], tags_per_way)}
         return cache # cache['way_x']['tag'/'data']
 
     @classmethod
@@ -266,12 +288,12 @@ class Generate:
 
     @classmethod
     def files_to_rom(Generate, rom, config):
-        files = config['ROM_FILE_NAMES'].split()
-        file_format = config['ROM_FILE_FORMAT']
+        files         = config['ROM_FILE_NAMES'].split()
+        file_format   = config['ROM_FILE_FORMAT']
         START_ADDRESS = config['ROM_START_ADDRESS'][2:]
-        # print(files, file_format, START_ADDRESS) # [ DEBUG ]
-        queue, pages, page_queue = {}, {}, {}
         queue_offset  = 0
+        queue, pages, page_queue = {}, {}, {}
+        # print(files, file_format, START_ADDRESS) # [ DEBUG ]
         for f in files: # loop A: Select files
             with open(f"bytecode/{f}", 'r') as active_file:
                 for line, bytecode in enumerate(active_file):# loop B: collect bytecode from the file
@@ -285,7 +307,7 @@ class Generate:
             # print(page_offset, page_key, pages) # [ DEBUG ]
             if page_offset == 'e':
                 rom[page_key] = pages[page_key]
-                page_key = f"page_{int(page_key[5:], 16) + 1:x}"
+                page_key      = f"page_{int(page_key[5:], 16) + 1:x}"
                 pages.update({page_key: {}})
         empty_entries = 8 - len(pages[page_key])
         for i in range(empty_entries): # loop D: Fill partially filled pages
@@ -300,22 +322,22 @@ class Generate:
 
 
     def __init__(self, config_name): # Size in bytes
-        self.config             = Generate.config(config_name) # Take s16.conf key-values and place in dictionary
-        self.PAGE_SIZE          = Generate.page_size(self.config) # Hardcoded to 16 Bytes
-        self.program_counter    = {'address': '0000', 'offset': '0002'}
-        self.reorder_buffer     = Generate.queue(self.config, 'REORDER_BUFFER')
-        self.read_only_memory   = Generate.memory(self.config, 'ROM')
-        self.read_only_memory   = Generate.files_to_rom(self.read_only_memory, self.config)
-        self.main_memory        = Generate.memory(self.config, 'MAIN')
-        self.combined_memory    = {**self.read_only_memory ,**self.main_memory} # combined for self.read() operations
-        self.cache_hierarchy    = Generate.cache_hierarchy(self.config) # depreciated - could be usefull in future updates
-        self.register           = Generate.memory(self.config, 'GPR') # = self.cache_hierarchy['GPR']       may insert GPR hierarchy
-        self.register_flags     = {'co' : '0000', 'zr': '0000'}
+        self.config            = Generate.config(config_name) # Take s16.conf key-values and place in dictionary
+        self.PAGE_SIZE         = Generate.page_size(self.config) # Hardcoded to 16 Bytes
+        self.program_counter   = {'address': '0000', 'offset': '0002'}
+        self.reorder_buffer    = Generate.queue(self.config, 'REORDER_BUFFER')
+        self.read_only_memory  = Generate.memory(self.config, 'ROM')
+        self.read_only_memory  = Generate.files_to_rom(self.read_only_memory, self.config)
+        self.main_memory       = Generate.memory(self.config, 'MAIN')
+        self.combined_memory   = {**self.read_only_memory ,**self.main_memory} # combined for self.read() operations
+        self.cache_hierarchy   = Generate.cache_hierarchy(self.config) # depreciated - could be usefull in future updates
+        self.register          = Generate.memory(self.config, 'GPR') # = self.cache_hierarchy['GPR']       may insert GPR hierarchy
+        self.register_flags    = {'co' : '0000', 'zr': '0000'}
         if 'l1_data' in self.cache_hierarchy: # if l1_data exists, l1_inst exists
-            self.l1_data_cache = self.cache_hierarchy['l1_data']['unit'] = Generate.cache(self.config, 'L1_DATA')
-            self.l1_inst_cache = self.cache_hierarchy['l1_inst']['unit'] = Generate.cache(self.config, 'L1_INST')
+            self.l1_data_cache = self.cache_hierarchy['l1_data']['unit'] = Generate.cache_deque(self.config, 'L1_DATA')
+            self.l1_inst_cache = self.cache_hierarchy['l1_inst']['unit'] = Generate.cache_deque(self.config, 'L1_INST')
         if 'l2' in self.cache_hierarchy:
-            self.l2_cache      = self.cache_hierarchy['l2']['unit'] = Generate.cache(self.config, 'L2')
+            self.l2_cache      = self.cache_hierarchy['l2']['unit'] = Generate.cache_deque(self.config, 'L2')
 
     def read(self, source_address, sink_address, mode=''): # modes: [b]yte, [w]ord (default), [p]age
 
@@ -327,18 +349,6 @@ class Generate:
             mode=='b'             : (lambda byte: f"00{byte[-2:]}"),
             # mode=='p'             : (lambda page: page),
             }
-        # source      = hierarchy['L1']['data']
-
-        # cache = {
-        #     'l1_d': {
-        #         'source': hierarchy['l1_data']['data'],
-        #         'config': hierarchy['l1_data']['data_config']},
-        #     'l1_i': {
-        #         'source': hierarchy['l1_inst']['inst'],
-        #         'config': hierarchy['l1_inst']['inst_config']},
-        #     'l2': {
-        #         'source': hierarchy['L2']}} # TODO: L2 implementation is a Long-term goal
-
 
         hierarchy   = self.cache_hierarchy
         register    = self.register
@@ -346,73 +356,52 @@ class Generate:
         source_page = decode.page(source_address, offset_bits)
         hits        = 0
         live_cache  = [cache for cache in self.cache_hierarchy] # order: l1_data?, l1_inst?, l2?
-        print(live_cache)
-        for current_cache in live_cache: # [(current, next), (current, next)...]
-            way_bits = hierarchy[current_cache]['config']['ways']
+        sink_page, sink_offset = decode.register(sink_address)
+
+        for target_cache in live_cache:
+            way_bits = hierarchy[target_cache]['config']['ways']
             tag, way_key, offset = decode.way(source_address, way_bits, offset_bits) # decodes address into TAG|WAY|OFFSET
-            if tag in hierarchy[current_cache]['unit'][way_key]['tag']:
-                cache     = hierarchy[current_cache]['unit']
+            if tag in hierarchy[target_cache]['unit'][way_key]['tag']: # is tag present in way?
+                cache     = hierarchy[target_cache]['unit']
                 tag_index = cache[way_key]['tag'].index(tag)
                 dirty_bit = cache[way_key]['dirty'][tag_index]
-                if (dirty_bit == 0) & (current_cache=='l1_data'): # HIT -- read value into register
+                new       = cache[way_key]['new'][tag_index]
+                print('hit in', target_cache, 'dirty bit', dirty_bit)
+                if target_cache=='l1_data': # L1_Data HIT -- read value into register
                     hits += 1
-                    print('hit in', current_cache,'-- total hits:', hits)
-                    sink_page, sink_offset = decode.register(sink_address)
                     self.l1_data_cache[way_key]['new'][tag_index] = 0 # Hits will set 'new' to 0
                     register[sink_page][sink_offset] = self.l1_data_cache[way_key]['data'][tag_index][str(sink_offset)]
-
                     continue
-        if (hits == 0) & ('l1_data' in live_cache): # all caches miss ->  move combined_memory[page] into l1_data cache
-        # s16 uses write-back, see [ NOTE ]
-            print('------ miss')
-            entry             = {'tag': tag, 'new': 1, 'data': self.combined_memory[source_page], 'dirty': 0}
-            old_tag_index     = self.l1_data_cache[way_key]['tag'].index(tag)  # evicted entry, old_entry, is moved to higher level cache or main_memory
-            old_dirty_bit     = self.l1_data_cache[way_key]['dirty'][old_tag_index]
-            if (old_dirty_bit == 0) & ('l2' in live_cache): # evicted entry moved to l2_cache
-                print('Moving Old entry to l2')
-                old_new_flag  = self.l1_data_cache[way_key]['new'][old_tag_index]
-                old_data      = self.l1_data_cache[way_key]['data'][old_tag_index]
-                l2_tag, l2_way_key, l2_offset = decode.way(source_address, hierarchy['l2']['config']['ways'], offset_bits)
-                old_l1d_entry = {'tag': l2_tag, 'new': 1, 'data': old_data, 'dirty': 0}
-                self.l2_cache['algorithm'](self.l2_cache, l2_way_key, entry)  # [lru/lfu/etc..](cache, way, entry)
-            elif (old_dirty_bit == 0) : # evicted entry moved to main_memory
-                print('Moving Old entry to main_memory')
-                old_new_flag  = self.l1_data_cache[way_key]['new'][old_tag_index]
-                old_data      = self.l1_data_cache[way_key]['data'][old_tag_index]
-            self.l1_data_cache['algorithm'](self.l1_data_cache, way_key, entry) # [lru/lfu/etc..](cache, way, entry)
-            tag_index = self.l1_data_cache[way_key]['tag'].index(tag)
-            sink_page, sink_offset = decode.register(sink_address)
-            register[sink_page][sink_offset] = self.l1_data_cache[way_key]['data'][tag_index][str(sink_offset)]
+                if target_cache=='l1_inst': # L1_Inst HIT -- Move page to L1_Data. NEW UNCHANGED
+                    # Tags and way keys need to be updated when storing to a new cache
+                    hits += 1
+                    l1_data_tag, l1_data_way, offset = decode.way(source_address, hierarchy['l1_data']['config']['ways'], offset_bits)
+                    entry = {'new': new, 'dirty':0, 'tag': l1_data_tag,  'data': self.l1_inst_cache[way_key]['data'][tag_index]}
+                    self.l1_data_cache['algorithm'](self.l1_data_cache, l1_data_way, entry) # [lru/lfu/etc..](cache, way, entry)
+                    l1_data_tag_index = self.l1_data_cache[way_key]['tag'].index(tag)
+                    register[sink_page][sink_offset] = self.l1_data_cache[l1_data_way]['data'][l1_data_tag_index][str(sink_offset)] # read from l1 -> reg
+                    continue
+                if target_cache=='l2': # L2 HIT -- Move page to L1_Data. NEW UNCHANGED
+                    # Tags and way keys need to be updated when storing to a new cache
+                    hits += 1
+                    l1_data_tag, l1_data_way, offset = decode.way(source_address, hierarchy['l1_data']['config']['ways'], offset_bits)
+                    entry = {'new': new, 'dirty':0, 'tag': l1_data_tag,  'data': self.l2_cache[way_key]['data'][tag_index]}
+                    self.l1_data_cache['algorithm'](self.l1_data_cache, l1_data_way, entry) # [lru/lfu/etc..](cache, way, entry)
+                    l1_data_tag_index = self.l1_data_cache[way_key]['tag'].index(tag)
+                    register[sink_page][sink_offset] = self.l1_data_cache[l1_data_way]['data'][l1_data_tag_index][str(sink_offset)] # read from l1 -> reg
+                    continue
+            # if target_cache[way_key][tag].maxlen > len(target_cache[way_key]['tag']): # is way fully populated?
+            #     pass
+        if (hits == 0):
+            print('miss')
+            l1_data_tag, l1_data_way, offset = decode.way(source_address, hierarchy['l1_data']['config']['ways'], offset_bits)
+            entry = {'new': 1, 'dirty':0, 'tag': l1_data_tag,  'data': self.combined_memory[source_page]}
+            self.l1_data_cache['algorithm'](self.l1_data_cache, l1_data_way, entry) # [lru/lfu/etc..](cache, way, entry)
+            l1_data_tag_index = self.l1_data_cache[way_key]['tag'].index(tag)
+            register[sink_page][sink_offset] = self.l1_data_cache[l1_data_way]['data'][l1_data_tag_index][str(sink_offset)]
 
 
 
-
-
-
-
-
-
-
-        # if tag in source[way_key]['tag']:
-        #     tag_index = source[way_key]['tag'].index(tag)
-        #     dirty_bit = source[way_key]['dirty'][tag_index]
-        #     if dirty_bit == 0:
-        #         print('hit')                                                            # [ debug ]
-        #         return source[way_key]['data'][tag_index][f"{offset:0x}"]
-        #     else: # fetch newest version
-        #         print('dirty hit... Finding last modified page')                        # [ debug ]
-        #         page = self.main_memory[page_key]
-        #         new_entry = {'tag': tag, 'new': 1, 'dirty': 0, 'data': page} # int(bin_address[0:-(offset_bits)], 2)int(bin_address[0:-(offset_bits)], 2)collecting components which make up an entry
-        #         source['algorithm'](source, way_key, new_entry) # sending the entry to the replacement algorithm
-        #         tag_index = source[way_key]['tag'].index(tag)
-        #         return source[way_key]['data'][tag_index][f"{offset:0x}"]
-        # else:
-        #     print('miss...retrieving page\npage_address:',page_key,',page:', page)      # [ debug ]
-        #     page = self.main_memory[page_key]
-        #     new_entry = {'tag': tag, 'new': 1, 'dirty': 0, 'data': page} # int(bin_address[0:-(offset_bits)], 2)int(bin_address[0:-(offset_bits)], 2)collecting components which make up an entry
-        #     source['algorithm'](source, way_key, new_entry) # sending the entry to the replacement algorithm
-        #     tag_index = source[way_key]['tag'].index(tag)
-        #     return source[way_key]['data'][tag_index][f"{offset:0x}"]
 
 
 
@@ -442,33 +431,34 @@ class Generate:
         pass
 
 
-    def step_clock(self): # fully step through cpu stages
-        print('----cycle----')
-        counter = self.program_counter
+def step_clock(cpu): # fully step through cpu stages
+    print('----cycle----')
+    counter = cpu.program_counter
 
 
-        # [ DECODE ]
-        print(read.cache(self.l1_inst_cache, self.read_only_memory, counter['address']))
-        # instruction.decode()
+    # [ DECODE ]
+    # print(read.cache(self.l1_inst_cache, self.read_only_memory, counter['address']))
 
-
-
-        # [ FETCH ]
+    # instruction.decode()
 
 
 
-
-        # [ EXECUTE ]
+    # [ FETCH ]
 
 
 
 
-        # [ WRITEBACK ]
+    # [ EXECUTE ]
 
 
-        # FINAL STEP
-        counter['address'] = f"{(int(counter['address'],16)+int(counter['offset'],16)):04x}"
-        pass
+
+
+    # [ WRITEBACK ]
+
+
+    # FINAL STEP
+    counter['address'] = f"{(int(counter['address'],16)+int(counter['offset'],16)):04x}"
+    pass
 
 
 
@@ -478,37 +468,39 @@ def main():
     print()
 
     s16 = Generate('s16.conf') # page_size=16 Bytes -> 8*2 Byte words -> 2B = 16-bits
-    # tprint.memory(s16.read_only_memory, 'rom')
+
+    # print()
+    # # print(s16.main_memory)
+    # print(s16.l1_data_cache)
+    # # print(s16.reorder_buffer)
+    # # print(s16.cache_hierarchy)
+    # s16.read('0000','0000')
     # tprint.memory(s16.register, 'gpr')
-    # tprint.memory(s16.main_memory, 'main')
-    tprint.cache(s16.l1_data_cache, 'l1d')
-    # write.memory(s16.main_memory, '0080', s16.rom['page_0'])
-    # tprint.memory(s16.main_memory, 'main')
-    # print(s16.read_only_memory)
-    print()
-    # print(s16.main_memory)
-    print(s16.l1_data_cache)
-    # print(s16.reorder_buffer)
-    # print(s16.cache_hierarchy)
-    s16.read('0000','0000')
-    tprint.memory(s16.register, 'gpr')
-    tprint.cache(s16.l1_data_cache, 'l1d')
-    # instruction.decode('0000000001111101')
-    s16.read('0002','0010')
-    tprint.memory(s16.register, 'gpr')
+    # # tprint.cache(s16.l1_data_cache, 'l1d')
+    # # instruction.decode('0000000001111101')
+    # print(s16.l1_data_cache)
+    # s16.read('0002','0010')
+    # tprint.memory(s16.register, 'gpr')
     # realistic loop:
         # Prefetch to I-Cache
         # commit instruction to ROB
         # decode instruction
         # execute
-    #     # writeback ready ROB entry
-    # i=0
-    # while i < 10: # simple test loop
-    #     print(i)
-    #     tprint.cache(s16.l1_inst_cache, 'l1_i')
-    #     s16.step_clock()
-    #     print(s16.program_counter)
-    #     i+=1
+        # writeback ready ROB entry
+    i=0
+    while i < 2: # simple test loop
+        print(i)
+        print(s16.l1_inst_cache)
+        print(s16.l1_data_cache)
+
+        tprint.memory(s16.register, 'gpr')
+        s16.read('0000', '000')
+        step_clock(s16)
+        print(s16.program_counter)
+        print(s16.l1_data_cache)
+        tprint.memory(s16.register, 'gpr')
+
+        i+=1
     # pass
     #
 
