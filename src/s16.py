@@ -370,8 +370,8 @@ class Generate:
                 if target_cache=='l1_data': # L1_Data HIT -- read value into register
                     hits += 1
                     self.l1_data_cache[way_key]['new'][tag_index] = 0 # Hits will set 'new' to 0
-                    register[sink_page][sink_offset] = self.l1_data_cache[way_key]['data'][tag_index][str(sink_offset)]
-                    continue
+                    register[sink_page][sink_offset] = self.l1_data_cache[way_key]['data'][tag_index][f"{offset:x}"]
+                    break
                 if target_cache=='l1_inst': # L1_Inst HIT -- Move page to L1_Data. NEW UNCHANGED
                     # Tags and way keys need to be updated when storing to a new cache
                     hits += 1
@@ -379,8 +379,8 @@ class Generate:
                     entry = {'new': new, 'dirty':0, 'tag': l1_data_tag,  'data': self.l1_inst_cache[way_key]['data'][tag_index]}
                     self.l1_data_cache['algorithm'](self.l1_data_cache, l1_data_way, entry) # [lru/lfu/etc..](cache, way, entry)
                     l1_data_tag_index = self.l1_data_cache[way_key]['tag'].index(tag)
-                    register[sink_page][sink_offset] = self.l1_data_cache[l1_data_way]['data'][l1_data_tag_index][str(sink_offset)] # read from l1 -> reg
-                    continue
+                    register[sink_page][sink_offset] = self.l1_data_cache[l1_data_way]['data'][l1_data_tag_index][f"{offset:x}"] # read from l1 -> reg
+                    break
                 if target_cache=='l2': # L2 HIT -- Move page to L1_Data. NEW UNCHANGED
                     # Tags and way keys need to be updated when storing to a new cache
                     hits += 1
@@ -388,8 +388,8 @@ class Generate:
                     entry = {'new': new, 'dirty':0, 'tag': l1_data_tag,  'data': self.l2_cache[way_key]['data'][tag_index]}
                     self.l1_data_cache['algorithm'](self.l1_data_cache, l1_data_way, entry) # [lru/lfu/etc..](cache, way, entry)
                     l1_data_tag_index = self.l1_data_cache[way_key]['tag'].index(tag)
-                    register[sink_page][sink_offset] = self.l1_data_cache[l1_data_way]['data'][l1_data_tag_index][str(sink_offset)] # read from l1 -> reg
-                    continue
+                    register[sink_page][sink_offset] = self.l1_data_cache[l1_data_way]['data'][l1_data_tag_index][f"{offset:x}"] # read from l1 -> reg
+                    break
             # if target_cache[way_key][tag].maxlen > len(target_cache[way_key]['tag']): # is way fully populated?
             #     pass
         if (hits == 0):
@@ -398,7 +398,7 @@ class Generate:
             entry = {'new': 1, 'dirty':0, 'tag': l1_data_tag,  'data': self.combined_memory[source_page]}
             self.l1_data_cache['algorithm'](self.l1_data_cache, l1_data_way, entry) # [lru/lfu/etc..](cache, way, entry)
             l1_data_tag_index = self.l1_data_cache[way_key]['tag'].index(tag)
-            register[sink_page][sink_offset] = self.l1_data_cache[l1_data_way]['data'][l1_data_tag_index][str(sink_offset)]
+            register[sink_page][sink_offset] = self.l1_data_cache[l1_data_way]['data'][l1_data_tag_index][f"{offset:x}"]
 
 
 
@@ -495,6 +495,9 @@ def main():
 
         tprint.memory(s16.register, 'gpr')
         s16.read('0000', '000')
+        s16.read('0010', '001')
+        s16.read('0001', '100')
+        s16.read('001a', '1111')
         step_clock(s16)
         print(s16.program_counter)
         print(s16.l1_data_cache)
