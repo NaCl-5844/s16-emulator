@@ -11,11 +11,14 @@ import tprint
 ##----[Notes]----##
 
 # NOTE:
-# s16 = Simple 16
+# s16  = Simple 16
 # Page = Block of 32 Bytes = (16-bits*16)/8 -- I'm allowing this to be modifiable
 # Cache:
 #   - https://en.wikipedia.org/wiki/Cache_placement_policies#Set-associative_cache
 #   - https://www.geeksforgeeks.org/write-through-and-write-back-in-cache
+#
+#   > Do I want reads flushing i_cache?
+#
 # Dirty Bit:
 #   - Don't get the order mixed up:
 #       * When page is modified, the dirty bit is set to True
@@ -32,12 +35,7 @@ import tprint
 # > Only binary file-types can be generted/used (MAY NOT IMPLEMENT BUT ATTACH A BIN -> HEX CONVERTER SCRIPT)
 
 # TODO LIST:
-# > (lol nvm lets do this now)
-# > REFACTOR: read.cache() and write.cache. I've gained more knowledge on flag usage and deques
-#       - Modify Generate.cache()
-#       - Update the lru replacemeny functions
-# > Find a way to offload cache heirarchy into <module>replacement logic?
-# >
+# > Fix tprint.cache()
 # >
 # >
 # > Make a basic single cycle loop to test the: pc, read, write, l1_inst_cache and instruction.decode
@@ -339,27 +337,22 @@ class Generate:
         if 'l2' in self.cache_hierarchy:
             self.l2_cache      = self.cache_hierarchy['l2']['unit'] = Generate.cache_deque(self.config, 'L2')
 
-    def read(self, source_address, sink_address, mode=''): # modes: [b]yte, [w]ord (default), [p]age
-
-        # FUNCTIONALITY FIRST -> THEN IMPROVE. thanks brain
-
-        # BUG: does not return the replaced entry
+    def read(self, source_address, sink_address, mode=''): # TODO: implement modes: [b]yte, [w]ord (default), [p]age
         resolved_mode = { # I can see implementing these formats as a pain in the ass for paged
             (mode=='')|(mode=='w'): (lambda word: word), # No need to modify the output
             mode=='b'             : (lambda byte: f"00{byte[-2:]}"),
             # mode=='p'             : (lambda page: page),
             }
 
-        hierarchy   = self.cache_hierarchy
-        register    = self.register
-        offset_bits = self.PAGE_SIZE>>2
-        source_page = decode.page(source_address, offset_bits)
-        hits        = 0
-        live_cache  = [cache for cache in self.cache_hierarchy] # order: l1_data?, l1_inst?, l2?
+        hierarchy              = self.cache_hierarchy
+        register               = self.register
+        offset_bits            = self.PAGE_SIZE>>2
+        source_page            = decode.page(source_address, offset_bits)
+        live_cache             = [cache for cache in self.cache_hierarchy] # order: l1_data?, l1_inst?, l2?
+        hit, dirty_bit         = None, None
         sink_page, sink_offset = decode.register(sink_address)
-
-        for target_cache in live_cache:
-            way_bits = hierarchy[target_cache]['config']['ways']
+        for target_cache in live_cache: # Loop has a lot of repeating code, see replacement.py TODO section
+            way_bits             = hierarchy[target_cache]['config']['ways']
             tag, way_key, offset = decode.way(source_address, way_bits, offset_bits) # decodes address into TAG|WAY|OFFSET
             if tag in hierarchy[target_cache]['unit'][way_key]['tag']: # is tag present in way?
                 cache     = hierarchy[target_cache]['unit']
@@ -368,37 +361,43 @@ class Generate:
                 new       = cache[way_key]['new'][tag_index]
                 print('hit in', target_cache, 'dirty bit', dirty_bit)
                 if target_cache=='l1_data': # L1_Data HIT -- read value into register
-                    hits += 1
-                    self.l1_data_cache[way_key]['new'][tag_index] = 0 # Hits will set 'new' to 0
+                    hit                              = target_cache
+                    evicted_entry                    = None
                     register[sink_page][sink_offset] = self.l1_data_cache[way_key]['data'][tag_index][f"{offset:x}"]
+                    self.l1_data_cache[way_key]['new'][tag_index] = 0 # Hits will set 'new' to 0
                     break
-                if target_cache=='l1_inst': # L1_Inst HIT -- Move page to L1_Data. NEW UNCHANGED
-                    # Tags and way keys need to be updated when storing to a new cache
-                    hits += 1
+                if target_cache=='l1_inst': # L1_Inst HIT -- Move page to L1_Data.
+                    hit                              = target_cache
                     l1_data_tag, l1_data_way, offset = decode.way(source_address, hierarchy['l1_data']['config']['ways'], offset_bits)
-                    entry = {'new': new, 'dirty':0, 'tag': l1_data_tag,  'data': self.l1_inst_cache[way_key]['data'][tag_index]}
-                    self.l1_data_cache['algorithm'](self.l1_data_cache, l1_data_way, entry) # [lru/lfu/etc..](cache, way, entry)
-                    l1_data_tag_index = self.l1_data_cache[way_key]['tag'].index(tag)
+                    entry                            = {'new': new, 'dirty':0, 'taNoneg': l1_data_tag,  'data': self.l1_inst_cache[way_key]['data'][tag_index]}
+                    evicted_entry                    = self.l1_data_cache['algorithm'](self.l1_data_cache, l1_data_way, entry) # [lru/lfu/etc..](cache, way, entry)
+                    l1_data_tag_index                = self.l1_data_cache[way_key]['tag'].index(tag)
                     register[sink_page][sink_offset] = self.l1_data_cache[l1_data_way]['data'][l1_data_tag_index][f"{offset:x}"] # read from l1 -> reg
                     break
-                if target_cache=='l2': # L2 HIT -- Move page to L1_Data. NEW UNCHANGED
-                    # Tags and way keys need to be updated when storing to a new cache
-                    hits += 1
+                if target_cache=='l2': # L2 HIT -- Move page to L1_Data. Evicted entries must be kicked up the hierarchy if modified(dirty=1)
+                    hit                              = target_cache
                     l1_data_tag, l1_data_way, offset = decode.way(source_address, hierarchy['l1_data']['config']['ways'], offset_bits)
-                    entry = {'new': new, 'dirty':0, 'tag': l1_data_tag,  'data': self.l2_cache[way_key]['data'][tag_index]}
-                    self.l1_data_cache['algorithm'](self.l1_data_cache, l1_data_way, entry) # [lru/lfu/etc..](cache, way, entry)
-                    l1_data_tag_index = self.l1_data_cache[way_key]['tag'].index(tag)
+                    entry                            = {'new': new, 'dirty':0, 'tag': l1_data_tag,  'data': self.l2_cache[way_key]['data'][tag_index]}
+                    evicted_entry                    = self.l1_data_cache['algorithm'](self.l1_data_cache, l1_data_way, entry) # [lru/lfu/etc..](cache, way, entry)
+                    l1_data_tag_index                = self.l1_data_cache[way_key]['tag'].index(tag)
                     register[sink_page][sink_offset] = self.l1_data_cache[l1_data_way]['data'][l1_data_tag_index][f"{offset:x}"] # read from l1 -> reg
+                    if evicted_entry != None:
+                        l2_tag, l2_way, offset = decode.way(source_address, hierarchy['l2']['config']['ways'], offset_bits)
+                        entry                  = {'new': 0, 'dirty':1, 'tag': l2_tag,  'data': evicted_entry['data']}
+                        evicted_l2_entry       = self.l2_cache['algorithm'](self.l2_cache, l2_way, entry) # [lru/lfu/etc..](cache, way, entry)
+                        if evicted_l2_entry != None:
+                            self.main_memory[source_page] = evicted_l2_entry['data']
                     break
-            # if target_cache[way_key][tag].maxlen > len(target_cache[way_key]['tag']): # is way fully populated?
-            #     pass
-        if (hits == 0):
+        if (hit == None):
             print('miss')
             l1_data_tag, l1_data_way, offset = decode.way(source_address, hierarchy['l1_data']['config']['ways'], offset_bits)
-            entry = {'new': 1, 'dirty':0, 'tag': l1_data_tag,  'data': self.combined_memory[source_page]}
-            self.l1_data_cache['algorithm'](self.l1_data_cache, l1_data_way, entry) # [lru/lfu/etc..](cache, way, entry)
-            l1_data_tag_index = self.l1_data_cache[way_key]['tag'].index(tag)
+            entry                            = {'new': 1, 'dirty':0, 'tag': l1_data_tag,  'data': self.combined_memory[source_page]}
+            evicted_entry                    = self.l1_data_cache['algorithm'](self.l1_data_cache, l1_data_way, entry) # [lru/lfu/etc..](cache, way, entry)
+            l1_data_tag_index                = self.l1_data_cache[way_key]['tag'].index(tag)
             register[sink_page][sink_offset] = self.l1_data_cache[l1_data_way]['data'][l1_data_tag_index][f"{offset:x}"]
+
+
+
 
 
 
@@ -490,6 +489,7 @@ def main():
     i=0
     while i < 2: # simple test loop
         print(i)
+        tprint.cache(s16.l1_data_cache, 'l1')
         print(s16.l1_inst_cache)
         print(s16.l1_data_cache)
 
@@ -497,7 +497,7 @@ def main():
         s16.read('0000', '000')
         s16.read('0010', '001')
         s16.read('0001', '100')
-        s16.read('001a', '1111')
+        s16.read('001a', '111')
         step_clock(s16)
         print(s16.program_counter)
         print(s16.l1_data_cache)
