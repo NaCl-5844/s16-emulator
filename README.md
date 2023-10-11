@@ -1,6 +1,6 @@
 # s16-emulator
 
-s16 is a simple ISA, 16-bit and a project to learn how to make a low level CPU emulation.
+s16 is a simple ISA, 16-bit and a project to learn how to make a low level CPU emulation. 
 
 Main Goals:
   - Configurable main memory size
@@ -16,3 +16,7 @@ Long-Term Goals:
   - Code and assemble in the command-line/shell, store the bin file and/or directly run the assemly code
 
 *Access speeds are rarely equal over a given memory structure
+
+__
+
+This project aims to give me the tools and knowledge to complete my dream microprocessor [t16](https://github.com/NaCl-5844/t16)(WIP) which will focus on throughput.
