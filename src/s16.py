@@ -237,7 +237,8 @@ class Generate:
                     evicted_entry = None
                     break
                 if target_cache=='l1_inst': # L1_Inst HIT -- Move page to L1_Data.
-                    entry = {'new': 1, 'dirty':0, 'taNoneg': l1_data_tag, 'data': self.l1_inst_cache[target_way]['data'][target_tag_index]}
+                    decode.way()
+                    entry = {'new': 1, 'dirty':0, 'tag': l1_data_tag, 'data': self.l1_inst_cache[target_way]['data'][target_tag_index]}
                 if target_cache=='l2': # L2 HIT -- Move page to L1_Data. Evicted entries must be kicked up the hierarchy if modified(dirty=1)
                     entry = {'new': 1, 'dirty':0, 'tag': l1_data_tag, 'data': self.l2_cache[target_way]['data'][target_tag_index]}
                 evicted_entry = self.l1_data_cache['algorithm'](self.l1_data_cache, l1_data_way, entry) # if cache == 'l1_inst' | 'l2' -> move to 'l1_data'
@@ -294,7 +295,7 @@ class Generate:
                     evicted_entry = None
                     break
                 if target_cache=='l1_inst': # L1_Inst HIT -- Move page to L1_Data.
-                    entry         = {'new': 1, 'dirty':0, 'taNoneg': l1_data_tag, 'data': self.l1_inst_cache[target_way]['data'][target_tag_index]}
+                    entry         = {'new': 1, 'dirty':0, 'tag': l1_data_tag, 'data': self.l1_inst_cache[target_way]['data'][target_tag_index]}
                 if target_cache=='l2': # L2 HIT -- Move page to L1_Data. Evicted entries must be kicked up the hierarchy if modified(dirty=1)
                     entry         = {'new': 1, 'dirty':0, 'tag': l1_data_tag, 'data': self.l2_cache[target_way]['data'][target_tag_index]}
                 evicted_entry = self.l1_data_cache['algorithm'](self.l1_data_cache, l1_data_way, entry) # if cache == 'l1_inst' | 'l2' -> move to 'l1_data'
