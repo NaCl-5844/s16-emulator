@@ -30,6 +30,7 @@ import tprint
 
 # BUG LIST:
 # > .read() and .write() methods do not extract correct address when managing evicted cache entries
+#   -- <current_cache>_tag and <current_cache>_way must be combined then split ccording to the configuration of the higher order cache
 # >
 # >
 # > ROM address-space cannot be above RAM's address-space [[ This may not matter, keep in BUG for now ]]
@@ -43,55 +44,6 @@ import tprint
 
 
 
-
-
-
-class write: # write.<function> modify by reference
-    def memory(memory, address, entry):
-        offset_bits = len(list(memory.values())[0]).bit_length() # Any memory must have at least page_0 # BUG: Naive page address decoding
-        page_key = decode.page(address, offset_bits)
-        if page_key in memory:
-            memory[page_key] = entry
-        else:
-            min_address = list(memory.keys())[0][5:]
-            max_address = list(memory.keys())[-1][5:]
-            raise OutOfBoundAddress(f"{page_key} out-of-bound, page range = 0x{min_address} - 0x{max_address}")
-
-    def cache(cache, main_memory, address, data): # upon a "miss", data must be retrieved from main main_memory # Splitting address -> tag|way|offset
-        way_bits = (len(cache)-1).bit_length()
-        offset_bits = len(cache['way_0']['data'][0]).bit_length() # All caches are generated with at least one way, or set: 'way_0'
-        tag, way_key, offset = decode.way(address, way_bits, offset_bits) # decodes address into TAG|WAY|OFFSET
-        # tag = f"{int(bin_address[way_bits:-(offset_bits+1)], 2):0{4}x}"
-        if tag in cache[way_key]['tag']: # Testing for a read_hit
-            tag_index = cache[way_key]['tag'].index(tag)
-            dirty_bit = cache[way_key]['dirty'][tag_index]
-            if dirty_bit == 0: # Clean hit
-                print('hit')                                        # [ debug ]
-                # offset = int(bin_address[-(offset_bits):15], 2) << 1 # Extracting the upper most bits of the address
-                cache[way_key]['data'][tag_index][f"{offset:x}"] = data
-            else: # fetch newest version -- i_cache's may need to look inside d_cache for newest data -- Dirty hit
-                print('dirty hit... Finding last modified page')    # [ debug ]
-                # with just 1 level of caching, only direct accesses to main_memory will cause a page to become dirty
-                # This could possibly happen if a DMA(Direct Memory Access) is implemented. Unlikely, maybe in T16.
-                page_key = decode.page(address, offset_bits)
-                if page_key in main_memory: # If address is valid
-                    page[f"{offset:0x}"] = data # data written to the incoming page
-                    new_entry = {'tag': tag, 'new': 1, 'dirty': 0, 'data': page} # collecting components which make up an entry
-                    cache['algorithm'](cache, way_key, new_entry) # sending the entry to the replacement algorithm
-                else: # Address out-of-range -- Raise error
-                    min_address = list(main_memory.keys())[0][5:]
-                    max_address = list(main_memory.keys())[-1][5:]
-                    raise OutOfBoundAddress(f"Page 0x{page:x} out-of-bound, page range = 0x{min_address} - 0x{max_address}")
-        else: # Miss
-            page_key = decode.page(address, offset_bits)
-            if page_key in main_memory: # If address is valid
-                page[f"{offset:0x}"] = data # data written to the incoming page
-                new_entry = {'tag': tag, 'dirty': 0, 'data': page} # collecting components which make up an entry
-                cache['algorithm'](cache, way_key, new_entry) # sending the entry to the replacement algorithm
-            else: # Address out-of-range -- Raise error
-                min_address = list(main_memory.keys())[0][5:]
-                max_address = list(main_memory.keys())[-1][5:]
-                raise OutOfBoundAddress(f"Page 0x{page:x} out-of-bound, page range = 0x{min_address} - 0x{max_address}")
 
 #----[Initialisation]----#
 
@@ -153,42 +105,9 @@ class Generate:
     def page_size(Generate, config):
         PAGE_SIZE = config.get('PAGE_SIZE')
         if PAGE_SIZE != 16: # HARDCODED 8*16-bit words
-            raise ConfigError
+            raise ConfigError('Please use the default 16-Byte PAGE_SIZE')
         else:
             return PAGE_SIZE
-
-    @classmethod
-    def cache(Generate, config, memory_type): # generating collections.deque instead of lists can improve the code and functionality
-        # https://en.wikipedia.org/wiki/Cache_placement_policies#Set-associative_cache
-        cache = {} # cache decoding: way | tag | offset
-        WAYS = config[f"{memory_type}_CACHE_WAYS"]
-        PAGE_SIZE = config['PAGE_SIZE']
-        BYTE_CAPACITY = config[f"{memory_type}_CACHE_SIZE"]
-        tag_count = int(BYTE_CAPACITY / PAGE_SIZE) # minimum BYTE_CAPACITY == WAYS*PAGE_SIZE
-        tags_per_way = int(tag_count / WAYS)
-        replacement_algorithm = config[f"{memory_type}_CACHE_REPL"]
-        cache['algorithm'] = eval(f"replacement.{replacement_algorithm}")
-        # print('tc: ',tag_count, 'tpw: ', tags_per_way) # [ debug ]
-        if tags_per_way == 0:
-            raise CacheCapacityError(f"Insufficient <BYTE_CAPACITY> for the number of <WAYS>\nMinimum <BYTE_CAPACITY> == WAYS*PAGE_SIZE = {WAYS*PAGE_SIZE}")
-        if WAYS < 2: # Other functions require, at least, a 'way_0' key to access the data inside a cache
-            cache['way_0'] = {'tag': [], 'new':[], 'dirty':[], 'data': []}
-            for a in range(tags_per_way): # Generate a initialised dictionary/page with offset(0 to f): 0000 (hex)
-                cache['way_0']['tag'].insert(0, '0000') # tag holds upper section of address
-                cache['way_0']['new'].insert(0, 1) # new/accessed aids prefetching
-                cache['way_0']['data'].insert(0, {f"{offset:0{PAGE_SIZE.bit_length()-4}x}": '0000' for offset in range(PAGE_SIZE>>1)}) # bit_length() ~ log2
-                cache['way_0']['dirty'].insert(0, 1) # https://en.wikipedia.org/wiki/Dirty_bit
-        else:
-            for w in range(WAYS): # WAYS, as in, x-way set-associative
-                way_key = f"way_{w:x}" # way_{hex(w)}
-                cache[way_key] = {'tag': [], 'new':[], 'dirty':[], 'data': []}
-                for a in range(tags_per_way): # Generate a initialised dictionary/page with offset(0 to f): 0000 (hex)
-                    cache[way_key]['tag'].insert(0, '0000') # tag holds upper section of address
-                    cache[way_key]['new'].insert(0, 1) # new/accessed aids  prefetching
-                    cache[way_key]['data'].insert(0, {f"{offset:0{PAGE_SIZE.bit_length()-4}x}": '0000' for offset in range(PAGE_SIZE>>1)}) # bit_length() ~ log2
-                    cache[way_key]['dirty'].insert(0, 1) # https://en.wikipedia.org/wiki/Dirty_bit
-        return cache # cache['way_x']['tag'/'data']
-
 
     @classmethod
     def cache_deque(Generate, config, memory_type): # generating collections.deque instead of lists can improve the code and functionality
@@ -201,23 +120,16 @@ class Generate:
         tags_per_way          = int(tag_count / WAYS)
         replacement_algorithm = config[f"{memory_type}_CACHE_REPL"]
         cache['algorithm']    = eval(f"replacement.{replacement_algorithm}")
-        # print('tc: ',tag_count, 'tpw: ', tags_per_way) # [ debug ]
         if tags_per_way == 0:
             raise CacheCapacityError(f"Insufficient <BYTE_CAPACITY> for the number of <WAYS>\nMinimum <BYTE_CAPACITY> == WAYS*PAGE_SIZE = {WAYS*PAGE_SIZE}")
-        if WAYS < 2: # Other functions require, at least, a 'way_0' key to access the data inside a cache
-            ache['way_0'] = {
-            'tag': collections.deque([], tags_per_way),  # tag holds upper section of address
-            'new':collections.deque([], tags_per_way), # new/accessed aids prefetching
-            'data': collections.deque([], tags_per_way),
-            'dirty':collections.deque([], tags_per_way)} # https://en.wikipedia.org/wiki/Dirty_bit
         else:
             for w in range(WAYS): # WAYS, as in, x-way set-associative
                 way_key = f"way_{w:x}" # way_{hex(w)}
                 cache[way_key] = {
-                    'tag': collections.deque([], tags_per_way),
-                    'new':collections.deque([], tags_per_way),
-                    'data': collections.deque([], tags_per_way),
-                    'dirty':collections.deque([], tags_per_way)}
+                    'tag':   collections.deque([], tags_per_way), # tag holds upper section of address
+                    'new':   collections.deque([], tags_per_way), # new/accessed aids prefetching
+                    'data':  collections.deque([], tags_per_way), # page[offset]
+                    'dirty': collections.deque([], tags_per_way)} # https://en.wikipedia.org/wiki/Dirty_bit
         return cache # cache['way_x']['tag'/'data']
 
     @classmethod
@@ -237,7 +149,7 @@ class Generate:
             START_ADDRESS, starting_page = 0, 0
             BYTE_CAPACITY = config['GPR_MEMORY_SIZE']
         memory = {}
-        pages = int(BYTE_CAPACITY / PAGE_SIZE) # Page -> [a, group, of, data, mapped, to, one, address]
+        pages  = int(BYTE_CAPACITY / PAGE_SIZE) # Page -> [a, group, of, data, mapped, to, one, address]
         for p in range(starting_page, starting_page + pages): # building the memory
             memory[f"page_{p:x}"] = {}
             for offset in range(PAGE_SIZE >> 1): # Offset -> Address of data within a page
@@ -312,9 +224,10 @@ class Generate:
 
         # -------- [ HIERARCHY MANAGEMENT ] -------- #
         for target_cache in live_cache:
-            way_bits             = hierarchy[target_cache]['config']['ways']
+            way_bits                       = hierarchy[target_cache]['config']['ways']
             target_tag, target_way, offset = decode.way(source_address, way_bits, offset_bits) # decodes address into TAG|WAY|OFFSET - offset universal to PAGE_SIZE
             if target_tag in hierarchy[target_cache]['unit'][target_way]['tag']: # is tag present in way?
+                target_tag_index                 = hierarchy[target_cache]['unit'][target_way]['tag'].index(target_tag)
                 l1_data_tag, l1_data_way, offset = decode.way(source_address, hierarchy['l1_data']['config']['ways'], offset_bits)  # decodes address into TAG|WAY|OFFSET
                 l1_data_tag_index                = self.l1_data_cache[l1_data_way]['tag'].index(l1_data_tag)
                 hit                              = target_cache
@@ -324,9 +237,9 @@ class Generate:
                     evicted_entry = None
                     break
                 if target_cache=='l1_inst': # L1_Inst HIT -- Move page to L1_Data.
-                    entry         = {'new': 1, 'dirty':0, 'taNoneg': l1_data_tag, 'data': self.l1_inst_cache[l1_data_way]['data'][tag_index]}
+                    entry = {'new': 1, 'dirty':0, 'taNoneg': l1_data_tag, 'data': self.l1_inst_cache[target_way]['data'][target_tag_index]}
                 if target_cache=='l2': # L2 HIT -- Move page to L1_Data. Evicted entries must be kicked up the hierarchy if modified(dirty=1)
-                    entry         = {'new': 1, 'dirty':0, 'tag': l1_data_tag, 'data': self.l2_cache[l1_data_way]['data'][tag_index]}
+                    entry = {'new': 1, 'dirty':0, 'tag': l1_data_tag, 'data': self.l2_cache[target_way]['data'][target_tag_index]}
                 evicted_entry = self.l1_data_cache['algorithm'](self.l1_data_cache, l1_data_way, entry) # if cache == 'l1_inst' | 'l2' -> move to 'l1_data'
                 break
         if (hit == None):
@@ -371,6 +284,7 @@ class Generate:
             way_bits             = hierarchy[target_cache]['config']['ways']
             target_tag, target_way, offset = decode.way(sink_address, way_bits, offset_bits) # decodes address into TAG|WAY|OFFSET - offset universal to PAGE_SIZE
             if target_tag in hierarchy[target_cache]['unit'][target_way]['tag']: # is tag present in way?
+                target_tag_index                 = hierarchy[target_cache]['unit'][target_way]['tag'].index(target_tag)
                 l1_data_tag, l1_data_way, offset = decode.way(sink_address, hierarchy['l1_data']['config']['ways'], offset_bits)  # decodes sink_address into TAG|WAY|OFFSET
                 l1_data_tag_index                = hierarchy[target_cache]['unit'][l1_data_way]['tag'].index(l1_data_tag)
                 hit                              = target_cache
@@ -380,9 +294,9 @@ class Generate:
                     evicted_entry = None
                     break
                 if target_cache=='l1_inst': # L1_Inst HIT -- Move page to L1_Data.
-                    entry         = {'new': 1, 'dirty':0, 'taNoneg': l1_data_tag, 'data': self.l1_inst_cache[l1_data_way]['data'][tag_index]}
+                    entry         = {'new': 1, 'dirty':0, 'taNoneg': l1_data_tag, 'data': self.l1_inst_cache[target_way]['data'][target_tag_index]}
                 if target_cache=='l2': # L2 HIT -- Move page to L1_Data. Evicted entries must be kicked up the hierarchy if modified(dirty=1)
-                    entry         = {'new': 1, 'dirty':0, 'tag': l1_data_tag, 'data': self.l2_cache[l1_data_way]['data'][tag_index]}
+                    entry         = {'new': 1, 'dirty':0, 'tag': l1_data_tag, 'data': self.l2_cache[target_way]['data'][target_tag_index]}
                 evicted_entry = self.l1_data_cache['algorithm'](self.l1_data_cache, l1_data_way, entry) # if cache == 'l1_inst' | 'l2' -> move to 'l1_data'
                 break
         if (hit == None):

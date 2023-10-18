@@ -1,7 +1,7 @@
 def lru(cache, way_key, new_entry): # Least Recently Used
     # -- doesn't work anyway if this function updates by reference >_>
     writeback_entry = None
-    if len(cache[way_key]['dirty']) > 0:
+    if len(cache[way_key]['dirty']) > 0: # BUG: len checked should be the maxlen of the deque
         if cache[way_key]['dirty'][-1] == 1:
             writeback_entry = {
                 'tag': cache[way_key]['tag'][-1],
