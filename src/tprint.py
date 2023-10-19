@@ -10,6 +10,9 @@ def memory(memory, name):
     print("}\n")
 
 def cache(cache, name):
+    # TODO:
+    # Use collections.deque.maxlen to show the full cache even when empty
+    # For unpopulated cache entries, use '____' , '_', or 'xxxx' instead of '0000'
     print(cache)
     print(f"{name}","{\n\n","\ttag\t\b\b\b0x0  0x2  0x4  0x6  0x8  0xa  0xc  0xe\n") # Hardcoded for simplicity
     if len(cache['way_0']['tag']) > 0:
@@ -22,7 +25,3 @@ def cache(cache, name):
         cache['algorithm'] = replacement_algorithm
     else:
         print(f"\n[ CACHE EMPTY ]\n")
-
-
-# if target_cache[way_key][tag].maxlen > len(target_cache[way_key]['tag']): # is way fully populated?
-            #     pass
