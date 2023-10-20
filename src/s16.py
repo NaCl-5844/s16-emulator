@@ -43,7 +43,7 @@ import tprint
 # > Only binary file-types can be generted/used (MAY NOT IMPLEMENT BUT ATTACH A BIN -> HEX CONVERTER SCRIPT)
 
 # TODO LIST:
-# > Create a simple knstruction prefetch
+# > Create a simple instruction prefetch
 # > Test write-back functionality, through .read() and .write() methods
 # >
 # > Make a basic single cycle loop to test the: pc, read, write, l1_inst_cache and instruction.decode
@@ -220,13 +220,13 @@ class Generate:
 
 
     def read(self, source_address, sink_address, mode=""): # memory_address, register_address,  modes: [b]yte, [w]ord, [p]age
-        register               = self.register
-        hierarchy              = self.cache_hierarchy
-        offset_bits            = self.PAGE_SIZE>>2
-        live_cache             = [cache for cache in hierarchy] # order: l1_data?, l1_inst?, l2?
-        source_page            = decode.page(source_address, offset_bits)
+        register    = self.register
+        hierarchy   = self.cache_hierarchy
+        offset_bits = self.PAGE_SIZE>>2
+        live_cache  = [cache for cache in hierarchy] # order: l1_data?, l1_inst?, l2?
+        source_page = decode.page(source_address, offset_bits)
+        hit         = None
         sink_page, sink_offset = decode.register(sink_address)
-        hit                    = None
 
         # -------- [ HIERARCHY MANAGEMENT ] -------- #
         for target_cache in live_cache:
@@ -280,26 +280,27 @@ class Generate:
             raise ValueError('Check <instruction> module for cpu.read() ModeError')
 
 
-    def write(self, sink_address, source_address, mode=""): # memory_address, register_address,  modes: [b]yte, [w]ord, [p]age
-        register               = self.register
-        hierarchy              = self.cache_hierarchy
-        offset_bits            = self.PAGE_SIZE>>2
-        live_cache             = [cache for cache in hierarchy] # order: l1_data?, l1_inst?, l2?
-        source_page            = decode.page(sink_address, offset_bits)
-        sink_page, sink_offset = decode.register(source_address)
-        hit                    = None
-        # -------- [ HIERARCHY MANAGEMENT ] -------- #
+    def write(self, source_address, sink_address, mode=""): # memory_address, register_address,  modes: [b]yte, [w]ord, [p]age
+        register    = self.register
+        hierarchy   = self.cache_hierarchy
+        offset_bits = self.PAGE_SIZE>>2
+        live_cache  = [cache for cache in hierarchy] # order: l1_data?, l1_inst?, l2?
+        hit         = None
+        l1_data_way_count               = hierarchy['l1_data']['config']['ways']
+        source_page, source_offset      = decode.register(source_address)
+        sink_tag, sink_way, sink_offset = decode.way(sink_address, l1_data_way_count, offset_bits)
 
+        # -------- [ HIERARCHY MANAGEMENT ] -------- #
         for target_cache in live_cache:
             target_cache_ways              = hierarchy[target_cache]['config']['ways']
-            target_tag, target_way, offset = decode.way(source_address, target_cache_ways, offset_bits) # decodes address into TAG|WAY|OFFSET - offset universal to PAGE_SIZE
+            target_tag, target_way, offset = decode.way(sink_address, target_cache_ways, offset_bits) # decodes address into TAG|WAY|OFFSET - offset universal to PAGE_SIZE
             if target_tag in hierarchy[target_cache]['unit'][target_way]['tag']: # is tag present in way?
                 target_tag_index                 = hierarchy[target_cache]['unit'][target_way]['tag'].index(target_tag)
-                l1_data_tag, l1_data_way, offset = decode.way(source_address, hierarchy['l1_data']['config']['ways'], offset_bits)  # decodes address into TAG|WAY|OFFSET
+                l1_data_tag, l1_data_way, offset = decode.way(sink_address, l1_data_way_count, offset_bits)  # decodes address into TAG|WAY|OFFSET
                 l1_data_tag_index                = self.l1_data_cache[l1_data_way]['tag'].index(l1_data_tag)
-                evicted_entry_address            = decode.join_keys(target_way, target_cache_ways, target_tag, offset_bits)
+                # evicted_entry_address            = decode.join_keys(target_way, target_cache_ways, target_tag, offset_bits)
                 hit                              = target_cache
-                print('hit in', target_cache)
+                print(f"write hit::{target_cache}\n\t:address:{sink_address}\n\t:tag:{target_tag}")
                 if target_cache == 'l1_data': # L1_Data HIT -- read value into register
                     self.l1_data_cache[l1_data_way]['new'][l1_data_tag_index] = 0 # Hits will set 'new' to 0
                     evicted_entry = None
@@ -309,36 +310,40 @@ class Generate:
                 if target_cache == 'l2': # L2 HIT -- Move page to L1_Data. Evicted entries must be kicked up the hierarchy if modified(dirty=1)
                     entry = {'new': 1, 'dirty':0, 'tag': target_tag, 'data': self.l2_cache[target_way]['data'][target_tag_index]}
                 evicted_entry         = self.l1_data_cache['algorithm'](self.l1_data_cache, l1_data_way, entry) # if cache == 'l1_inst' | 'l2' -> move to 'l1_data'
-                evicted_entry_address = decode.join_keys(target_way, target_cache_ways, target_tag, offset_bits)
+                evicted_entry_address = decode.join_keys(target_way, target_cache_ways, evicted_entry['tag'], offset_bits)
                 break
         if (hit == None):
-            print('miss')
-            l1_data_tag, l1_data_way, offset = decode.way(source_address, hierarchy['l1_data']['config']['ways'], offset_bits)  # decodes address into TAG|WAY|OFFSET
-            entry                 = {'new': 1, 'dirty':0, 'tag': l1_data_tag, 'data': self.combined_memory[source_page]}
+            l1_data_tag, l1_data_way, offset = decode.way(sink_address, l1_data_way_count, offset_bits)  # decodes address into TAG|WAY|OFFSET
+            print(f"Write Miss::address:'{sink_address}'")
+            entry                 = {'new': 1, 'dirty':1, 'tag': l1_data_tag, 'data': self.register[source_page]}
             evicted_entry         = self.l1_data_cache['algorithm'](self.l1_data_cache, l1_data_way, entry) # [lru/lfu/etc..](cache, way, entry)
-            evicted_entry_address = decode.join_keys(target_way, target_cache_ways, target_tag, offset_bits)
             l1_data_tag_index     = self.l1_data_cache[l1_data_way]['tag'].index(l1_data_tag)
 
-        evicted_entry_page = decode.page(evicted_entry_address, offset_bits)
         if (evicted_entry != None) & ('l2' in live_cache): # Entry modified and returned to evicted_entry, instead of None
+            evicted_entry_address  = decode.join_keys(target_way, target_cache_ways, evicted_entry['tag'], offset_bits)
             l2_tag, l2_way, offset = decode.way(evicted_entry_address, hierarchy['l2']['config']['ways'], offset_bits)
             entry                  = {'new': 1, 'dirty':1, 'tag': l2_tag, 'data': evicted_entry['data']} # dirty_bit=1 -> modified
             evicted_l2_entry       = self.l2_cache['algorithm'](self.l2_cache, l2_way, entry) # [lru/lfu/etc..](cache, way, entry)
             if evicted_l2_entry != None:
+                evicted_l2_entry_address             = decode.join_keys(l2_way, hierarchy['l2']['config']['ways'], evicted_l2_entry['tag'], offset_bits)
+                evicted_l2_entry_page                = decode.page(evicted_l2_entry_address, offset_bits)
                 self.main_memory[evicted_entry_page] = evicted_l2_entry['data']
         elif evicted_entry != None:
+            evicted_entry_address  = decode.join_keys(target_way, target_cache_ways, evicted_entry['tag'], offset_bits)
+            evicted_entry_page = decode.page(evicted_entry_address, offset_bits)
             self.main_memory[evicted_entry_page] = evicted_entry['data']
         # -------- [ /HIERARCHY MANAGEMENT ] -------- #
 
         offset_key = f"{offset:x}"
         if (mode=='') | (mode=='w'):
-            self.l1_data_cache[l1_data_way]['data'][l1_data_tag_index][offset_key] = register[sink_page][sink_offset]
+            self.l1_data_cache[l1_data_way]['data'][l1_data_tag_index][offset_key] = register[source_page][source_offset]
         elif mode=='b':
-            self.l1_data_cache[l1_data_way]['data'][l1_data_tag_index][offset_key] = f"{register[sink_page][sink_offset][:2]}{self.l1_data_cache[l1_data_way]['data'][l1_data_tag_index][offset_key][-2:]}"
+            self.l1_data_cache[l1_data_way]['data'][l1_data_tag_index][offset_key] = f"{register[source_page][source_offset][:2]}{self.l1_data_cache[l1_data_way]['data'][l1_data_tag_index][offset_key][-2:]}"
         elif mode=='p':
-            self.l1_data_cache[l1_data_way]['data'][l1_data_tag_index]             = register[sink_page]
+            self.l1_data_cache[l1_data_way]['data'][l1_data_tag_index]             = register[source_page]
         else:
             raise ValueError('Check <instruction> module for cpu.write() ModeError')
+
 
 
 
@@ -359,8 +364,8 @@ class Generate:
             target_tag, target_way, offset = decode.way(source_address, target_cache_ways, offset_bits) # decodes address into TAG|WAY|OFFSET - offset universal to PAGE_SIZE
             if target_tag in hierarchy[target_cache]['unit'][target_way]['tag']: # is tag present in way?
                 target_tag_index                 = hierarchy[target_cache]['unit'][target_way]['tag'].index(target_tag)
-                l1_data_tag, l1_data_way, offset = decode.way(source_address, hierarchy['l1_data']['config']['ways'], offset_bits)  # decodes address into TAG|WAY|OFFSET
-                l1_data_tag_index                = self.l1_data_cache[l1_data_way]['tag'].index(l1_data_tag)
+                l1_inst_tag, l1_inst_way, offset = decode.way(source_address, hierarchy['l1_inst']['config']['ways'], offset_bits)  # decodes address into TAG|WAY|OFFSET
+                l1_inst_tag_index                = self.l1_inst_cache[l1_inst_way]['tag'].index(l1_inst_tag)
                 evicted_entry_address            = decode.join_keys(target_way, target_cache_ways, target_tag, offset_bits)
                 hit                              = target_cache
                 print('hit in', target_cache)
@@ -368,20 +373,20 @@ class Generate:
                     entry = {'new': 1, 'dirty':0, 'tag': target_tag, 'data': self.l1_data_cache[target_way]['data'][target_tag_index]}
                     break
                 if target_cache == 'l1_inst': # L1_Inst HIT -- Move page to L1_Data.
-                    self.l1_inst_cache[l1_data_way]['new'][l1_data_tag_index] = 0 # Hits will set 'new' to 0
+                    self.l1_inst_cache[l1_inst_way]['new'][l1_inst_tag_index] = 0 # Hits will set 'new' to 0
                     evicted_entry = None
                 if target_cache == 'l2': # L2 HIT -- Move page to L1_Data. Evicted entries must be kicked up the hierarchy if modified(dirty=1)
                     entry = {'new': 1, 'dirty':0, 'tag': target_tag, 'data': self.l2_cache[target_way]['data'][target_tag_index]}
-                evicted_entry         = self.l1_data_cache['algorithm'](self.l1_data_cache, l1_data_way, entry) # if cache == 'l1_inst' | 'l2' -> move to 'l1_data'
+                evicted_entry         = self.l1_inst_cache['algorithm'](self.l1_inst_cache, l1_inst_way, entry) # if cache == 'l1_inst' | 'l2' -> move to 'l1_data'
                 evicted_entry_address = decode.join_keys(target_way, target_cache_ways, target_tag, offset_bits)
                 break
         if (hit == None):
             print('miss')
-            l1_data_tag, l1_data_way, offset = decode.way(source_address, hierarchy['l1_data']['config']['ways'], offset_bits)  # decodes address into TAG|WAY|OFFSET
+            l1_inst_tag, l1_inst_way, offset = decode.way(source_address, hierarchy['l1_inst']['config']['ways'], offset_bits)  # decodes address into TAG|WAY|OFFSET
             entry                 = {'new': 1, 'dirty':0, 'tag': l1_data_tag, 'data': self.combined_memory[source_page]}
-            evicted_entry         = self.l1_data_cache['algorithm'](self.l1_data_cache, l1_data_way, entry) # [lru/lfu/etc..](cache, way, entry)
+            evicted_entry         = self.l1_inst_cache['algorithm'](self.l1_inst_cache, l1_inst_way, entry) # [lru/lfu/etc..](cache, way, entry)
             evicted_entry_address = decode.join_keys(target_way, target_cache_ways, target_tag, offset_bits)
-            l1_data_tag_index     = self.l1_data_cache[l1_data_way]['tag'].index(l1_data_tag)
+            l1_inst_tag_index     = self.l1_inst_cache[l1_inst_way]['tag'].index(l1_inst_tag)
 
         evicted_entry_page = decode.page(evicted_entry_address, offset_bits)
         if (evicted_entry != None) & ('l2' in live_cache): # Entry modified and returned to evicted_entry, instead of None
@@ -393,11 +398,6 @@ class Generate:
         elif evicted_entry != None:
             self.main_memory[evicted_entry_page] = evicted_entry['data']
         # -------- [ /L1 INST FOCUSED HIERARCHY MANAGEMENT ] -------- #
-
-
-
-
-
 
     def ref_prediction_prefetch(self): # Bruh do the "Tagged" Prefetching first -- this is for data load/stores.
         # check reference_prediction_table if stride == 0 for current tag & state ==
@@ -457,6 +457,7 @@ def main():
         # writeback ready ROB entry
     tprint.memory(s16.combined_memory, 'combined ROM + RAM')
     s16.program_counter['offset'] = '0010'
+    write_address = '0080'
     i=0
     while i < 6: # simple test loop
         print(i)
@@ -465,16 +466,19 @@ def main():
         # print('l1d:', s16.l1_data_cache)
         # print('\n\n', s16.cache_hierarchy, '\n\n')
         tprint.memory(s16.register, 'gpr')
+        s16.read(s16.program_counter['address'], '000', 'p')
         tprint.cache(s16.l1_data_cache, 'l1_d')
-        s16.read(s16.program_counter['address'], '000')
+        tprint.memory(s16.register, 'gpr')
+        s16.write('000', write_address, 'p')
+        tprint.cache(s16.l1_data_cache, 'l1_d')
         step_clock(s16)
+        write_address = f"{(int(write_address,16)+16):04x}"
         print(s16.program_counter)
         # s16.tagged_prefetch()
 
         i+=1
     tprint.memory(s16.main_memory, 'main_memory')
     # pass
-    #
 
 if __name__ == "__main__":
     main()
