@@ -1,4 +1,4 @@
-def memory(memory, name):
+def memory(memory, name=""):
     print(f"{name}","{\n\n\t0x0  0x2  0x4  0x6  0x8  0xa  0xc  0xe\n") # Hardcoded for simplicity
 
     rows_per_page = len(memory[list(memory.keys())[0]]) % 8
@@ -9,19 +9,21 @@ def memory(memory, name):
         print('Page sizes >8 are yet to be implemented')
     print("}\n")
 
-def cache(cache, name):
-    # TODO:
-    # Use collections.deque.maxlen to show the full cache even when empty
-    # For unpopulated cache entries, use '____' , '_', or 'xxxx' instead of '0000'
-    print(cache)
+
+def cache(cache, name=""):
+    replacement_algorithm = cache.pop('algorithm') # Not sure how else to get around this
+    max_length = cache['way_0']['tag'].maxlen # maxlen is consisgtent across all ways
     print(f"{name}","{\n\n","\ttag\t\b\b\b0x0  0x2  0x4  0x6  0x8  0xa  0xc  0xe\n") # Hardcoded for simplicity
-    if len(cache['way_0']['tag']) > 0:
-        replacement_algorithm = cache.pop('algorithm') # Not sure how else to get around this
-        for way in cache:
-            print(way.replace('ay_', ':'), end='') # 'way_X' -> 'wX'
-            for t in range(len(cache[way]['tag'])):
-                print(f"\t{cache[way]['tag'][t]} {' '.join(list(cache[way]['data'][t].values()))}")
-        print("}\n")
-        cache['algorithm'] = replacement_algorithm
-    else:
-        print(f"\n[ CACHE EMPTY ]\n")
+    for way in cache:
+        population = len(cache[way]['tag'])
+        print(way.replace('ay_', ':'), end='') # 'way_X' -> 'w:X'
+        for index, tag in enumerate(cache[way]['tag']): # prints current population of cache
+            print(f"\t{tag} {' '.join(list(cache[way]['data'][index].values()))}")
+        for unpopulated in range(max_length-population):
+            empty_page = ['0000' for word in range(8)]
+            print(f"\t____ {' '.join(empty_page)}")
+
+    print("}\n")
+    cache['algorithm'] = replacement_algorithm
+
+
