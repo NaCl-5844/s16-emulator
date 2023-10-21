@@ -12,12 +12,11 @@ Main Goals:
 Secondary Goals:
   - cycle costs for every insruction, memory location*, cache accesses and stalls
   - configurable prefetching and simple/naive branch prediction
-  
+  - Overhaul replacement algorithms with cycle costs, and add more complex algorithms
+  *Access speeds are rarely equal over a given memory structure
 
 Long-Term Goals:
   - Peripherals such as a simple screen and user input
-
-*Access speeds are rarely equal over a given memory structure
 
 ## Milestones 
   - Configurable main memory size ✓
