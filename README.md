@@ -3,10 +3,6 @@
 s16 is a simple ISA, 16-bits and a project to learn how to make a low level CPU emulation. 
 
 Main Goals:
-  - Configurable, write-back cache hierarchy with:
-      - level 1 Data and Instruction Caches \[Currently Required\]
-      - Level 2 unified cache \(Optional\)
-      - [Write-back](https://www.geeksforgeeks.org/write-through-and-write-back-in-cache/) logic should work regardless of a level 2 cache being enabled
   - Implement main arithmetic, branching and memory instructions
   - Implement simple instruction prefetching.
   - Configurable cache size and replacement algorithms \[currently onlyh LRU\]
@@ -27,6 +23,10 @@ Long-Term Goals:
   - Configurable main memory size ✓
   - Output a file containing changes in memory and functional units each cycle ✓
   - Take s16 assembly from a file -> assemble microcode -> place in emulator memory ✓
+  - Configurable, write-back cache hierarchy with:
+    - level 1 Data and Instruction Caches \[Currently Required\] ✓
+    - Level 2 unified cache \(Optional\) ✓
+    - [Write-back](https://www.geeksforgeeks.org/write-through-and-write-back-in-cache/) logic should work regardless of a level 2 cache being enabled ✓
 
 - - - 
 
