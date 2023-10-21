@@ -199,22 +199,40 @@ class Generate:
 
 
     def __init__(self, config_name): # Size in bytes
+        self.initialised       = 0
         self.config            = Generate.config(config_name) # Take s16.conf key-values and place in dictionary
         self.PAGE_SIZE         = Generate.page_size(self.config) # Hardcoded, hence the CAPS, to 16 Bytes
+        self.offset_bits       = self.PAGE_SIZE>>2
         self.program_counter   = {'address': '0000', 'offset': '0002'}
         self.reorder_buffer    = Generate.queue(self.config, 'REORDER_BUFFER')
         self.read_only_memory  = Generate.memory(self.config, 'ROM')
         self.read_only_memory  = Generate.files_to_rom(self.read_only_memory, self.config)
         self.main_memory       = Generate.memory(self.config, 'MAIN')
-        self.combined_memory   = {**self.read_only_memory ,**self.main_memory} # combined for self.read() operations
+        self.combined_memory   = {**self.read_only_memory, **self.main_memory} # combined for self.read() operations
         self.cache_hierarchy   = Generate.cache_hierarchy(self.config) # depreciated - could be usefull in future updates
         self.register          = Generate.memory(self.config, 'GPR') # = self.cache_hierarchy['GPR']       may insert GPR hierarchy
         self.register_flags    = {'co' : '0000', 'zr': '0000'}
         if 'l1_data' in self.cache_hierarchy: # if l1_data exists, l1_inst exists
             self.l1_data_cache = self.cache_hierarchy['l1_data']['unit'] = Generate.cache_deque(self.config, 'L1_DATA')
             self.l1_inst_cache = self.cache_hierarchy['l1_inst']['unit'] = Generate.cache_deque(self.config, 'L1_INST')
+        else:
+            raise ConfigError('config must include at least an l1_data and l1_inst cache')
         if 'l2' in self.cache_hierarchy:
             self.l2_cache      = self.cache_hierarchy['l2']['unit'] = Generate.cache_deque(self.config, 'L2')
+
+        # -------- [ BOOT FROM ROM ] -------- #
+        if self.initialised == 0: # This can me much nicer, focus on functionality first though
+            offset_bits = self.offset_bits
+            print(f"...initialising l1_inst_cache")
+            l1_inst_tag, l1_inst_way, offset = decode.way('0000', self.cache_hierarchy['l1_inst']['config']['ways'], offset_bits)  # decodes address into TAG|WAY|OFFSET
+            first_page = decode.page('0000', offset_bits)
+            entry      = {'new': 1, 'dirty': 0, 'tag': l1_inst_tag, 'data': self.read_only_memory[first_page]}
+            self.l1_data_cache['algorithm'](self.l1_inst_cache, l1_inst_way, entry)
+            self.initialised = 1
+        else:
+            pass
+        # -------- [ /BOOT FROM ROM ] -------- #
+
         self.tagged_prefetch_state      = '00' # 00: strong miss, 01: weak miss, 10: weak hit, 11: string hit
         self.reference_prediction_table = Generate.queue(self.config, 'REF_PREDICTION_TABLE')
 
@@ -222,7 +240,7 @@ class Generate:
     def read(self, source_address, sink_address, mode=""): # memory_address, register_address,  modes: [b]yte, [w]ord, [p]age
         register    = self.register
         hierarchy   = self.cache_hierarchy
-        offset_bits = self.PAGE_SIZE>>2
+        offset_bits = self.offset_bits
         live_cache  = [cache for cache in hierarchy] # order: l1_data?, l1_inst?, l2?
         source_page = decode.page(source_address, offset_bits)
         hit         = None
@@ -283,7 +301,7 @@ class Generate:
     def write(self, source_address, sink_address, mode=""): # memory_address, register_address,  modes: [b]yte, [w]ord, [p]age
         register    = self.register
         hierarchy   = self.cache_hierarchy
-        offset_bits = self.PAGE_SIZE>>2
+        offset_bits = self.offset_bits
         live_cache  = [cache for cache in hierarchy] # order: l1_data?, l1_inst?, l2?
         hit         = None
         l1_data_way_count               = hierarchy['l1_data']['config']['ways']
@@ -345,36 +363,35 @@ class Generate:
             raise ValueError('Check <instruction> module for cpu.write() ModeError')
 
 
-
-
-
-
     def tagged_prefetch(self): # this whole method is grim :()
-        register               = self.register
-        hierarchy              = self.cache_hierarchy
-        offset_bits            = self.PAGE_SIZE>>2
-        live_cache             = [cache for cache in hierarchy] # order: l1_data?, l1_inst?, l2?
-        source_page            = decode.page(sink_address, offset_bits)
-        sink_page, sink_offset = decode.register(source_address)
-        hit                    = None
-        # -------- [ L1 INST FOCUSED HIERARCHY MANAGEMENT ] -------- #
+        next_address    = f"{(int(self.program_counter['address'],16)+16):04x}" # +16 increased page address by 1 -- 16-Bytes per page
+        hierarchy       = self.cache_hierarchy
+        offset_bits     = self.offset_bits
+        live_cache      = [cache for cache in hierarchy] # order: l1_data?, l1_inst?, l2?
+        source_page     = decode.page(next_address, offset_bits)
+        hit             = None
 
+        # -------- [ L1 INST FOCUSED HIERARCHY MANAGEMENT ] -------- #
         for target_cache in live_cache:
             target_cache_ways              = hierarchy[target_cache]['config']['ways']
-            target_tag, target_way, offset = decode.way(source_address, target_cache_ways, offset_bits) # decodes address into TAG|WAY|OFFSET - offset universal to PAGE_SIZE
+            target_tag, target_way, offset = decode.way(next_address, target_cache_ways, offset_bits) # decodes address into TAG|WAY|OFFSET - offset universal to PAGE_SIZE
             if target_tag in hierarchy[target_cache]['unit'][target_way]['tag']: # is tag present in way?
                 target_tag_index                 = hierarchy[target_cache]['unit'][target_way]['tag'].index(target_tag)
-                l1_inst_tag, l1_inst_way, offset = decode.way(source_address, hierarchy['l1_inst']['config']['ways'], offset_bits)  # decodes address into TAG|WAY|OFFSET
+                l1_inst_tag, l1_inst_way, offset = decode.way(next_address, hierarchy['l1_inst']['config']['ways'], offset_bits)  # decodes address into TAG|WAY|OFFSET
                 l1_inst_tag_index                = self.l1_inst_cache[l1_inst_way]['tag'].index(l1_inst_tag)
+                if self.l1_inst_cache[l1_inst_way]['new'][l1_inst_tag_index] == 1:
+                    return None
+                else:
+                    pass
                 evicted_entry_address            = decode.join_keys(target_way, target_cache_ways, target_tag, offset_bits)
                 hit                              = target_cache
                 print('hit in', target_cache)
-                if target_cache == 'l1_data':
-                    entry = {'new': 1, 'dirty':0, 'tag': target_tag, 'data': self.l1_data_cache[target_way]['data'][target_tag_index]}
-                    break
-                if target_cache == 'l1_inst': # L1_Inst HIT -- Move page to L1_Data.
+                if target_cache == 'l1_inst': # L1_Inst HIT -- set 'new' to 0
                     self.l1_inst_cache[l1_inst_way]['new'][l1_inst_tag_index] = 0 # Hits will set 'new' to 0
                     evicted_entry = None
+                    break
+                if target_cache == 'l1_data':
+                    entry = {'new': 1, 'dirty':0, 'tag': target_tag, 'data': self.l1_data_cache[target_way]['data'][target_tag_index]}
                 if target_cache == 'l2': # L2 HIT -- Move page to L1_Data. Evicted entries must be kicked up the hierarchy if modified(dirty=1)
                     entry = {'new': 1, 'dirty':0, 'tag': target_tag, 'data': self.l2_cache[target_way]['data'][target_tag_index]}
                 evicted_entry         = self.l1_inst_cache['algorithm'](self.l1_inst_cache, l1_inst_way, entry) # if cache == 'l1_inst' | 'l2' -> move to 'l1_data'
@@ -382,8 +399,8 @@ class Generate:
                 break
         if (hit == None):
             print('miss')
-            l1_inst_tag, l1_inst_way, offset = decode.way(source_address, hierarchy['l1_inst']['config']['ways'], offset_bits)  # decodes address into TAG|WAY|OFFSET
-            entry                 = {'new': 1, 'dirty':0, 'tag': l1_data_tag, 'data': self.combined_memory[source_page]}
+            l1_inst_tag, l1_inst_way, offset = decode.way(next_address, hierarchy['l1_inst']['config']['ways'], offset_bits)  # decodes address into TAG|WAY|OFFSET
+            entry                 = {'new': 1, 'dirty':0, 'tag': l1_inst_tag, 'data': self.combined_memory[source_page]}
             evicted_entry         = self.l1_inst_cache['algorithm'](self.l1_inst_cache, l1_inst_way, entry) # [lru/lfu/etc..](cache, way, entry)
             evicted_entry_address = decode.join_keys(target_way, target_cache_ways, target_tag, offset_bits)
             l1_inst_tag_index     = self.l1_inst_cache[l1_inst_way]['tag'].index(l1_inst_tag)
@@ -399,6 +416,13 @@ class Generate:
             self.main_memory[evicted_entry_page] = evicted_entry['data']
         # -------- [ /L1 INST FOCUSED HIERARCHY MANAGEMENT ] -------- #
 
+
+
+
+
+
+
+
     def ref_prediction_prefetch(self): # Bruh do the "Tagged" Prefetching first -- this is for data load/stores.
         # check reference_prediction_table if stride == 0 for current tag & state ==
         # if cache[way_x][new][page] == False: # The page has been accessed -> NOT "new"
@@ -411,34 +435,35 @@ class Generate:
         pass
 
 
-def step_clock(cpu): # fully step through cpu stages
-    print('----cycle----')
-    counter = cpu.program_counter
+    def step_clock(self): # fully step through cpu stages
+        print('----cycle----')
+        counter = self.program_counter
 
 
-    # [ DECODE ]
-    # print(read.cache(self.l1_inst_cache, self.read_only_memory, counter['address']))
-
-    # instruction.decode()
-
-
-
-    # [ FETCH ]
+        # [ DECODE ]
+        # print(read.cache(self.l1_inst_cache, self.read_only_memory, counter['address']))
+        l1_inst_tag, l1_inst_way, offset = decode.way(counter['address'], self.cache_hierarchy['l1_inst']['config']['ways'], self.offset_bits)
+        l1_inst_tag_index = self.l1_inst_cache[l1_inst_way]['tag'].index(l1_inst_tag)
+        print(instruction.decode(self.l1_inst_cache[l1_inst_way]['data'][l1_inst_tag_index][f"{offset:x}"]))
 
 
 
-
-    # [ EXECUTE ]
+        # [ FETCH ]
 
 
 
 
-    # [ WRITEBACK ]
+        # [ EXECUTE ]
 
 
-    # FINAL STEP
-    counter['address'] = f"{(int(counter['address'],16)+int(counter['offset'],16)):04x}"
-    pass
+
+
+        # [ WRITEBACK ]
+
+
+        # FINAL STEP
+        counter['address'] = f"{(int(counter['address'],16)+int(counter['offset'],16)):04x}"
+        pass
 
 
 
@@ -448,36 +473,24 @@ def main():
     print()
 
     s16 = Generate('s16.conf') # page_size=16 Bytes -> 8*2 Byte words -> 2B = 16-bits
-
     # realistic loop:
         # Prefetch to I-Cache
         # commit instruction to ROB
         # decode instruction
         # execute
         # writeback ready ROB entry
-    tprint.memory(s16.combined_memory, 'combined ROM + RAM')
-    s16.program_counter['offset'] = '0010'
-    write_address = '0080'
-    i=0
-    while i < 6: # simple test loop
-        print(i)
-        # tprint.cache(s16.l1_data_cache, 'l1')
-        # print('l1i:', s16.l1_inst_cache)
-        # print('l1d:', s16.l1_data_cache)
-        # print('\n\n', s16.cache_hierarchy, '\n\n')
-        tprint.memory(s16.register, 'gpr')
-        s16.read(s16.program_counter['address'], '000', 'p')
-        tprint.cache(s16.l1_data_cache, 'l1_d')
-        tprint.memory(s16.register, 'gpr')
-        s16.write('000', write_address, 'p')
-        tprint.cache(s16.l1_data_cache, 'l1_d')
-        step_clock(s16)
-        write_address = f"{(int(write_address,16)+16):04x}"
-        print(s16.program_counter)
-        # s16.tagged_prefetch()
+    tprint.memory(s16.read_only_memory, 'ROM')
+    # s16.program_counter['offset'] = '0010'
+    # write_address = '0080'
 
+    i=0
+    while i < 9: # simple test loop
+        print(i)
+        tprint.cache(s16.l1_inst_cache)
+        s16.tagged_prefetch()
+        s16.step_clock()
         i+=1
-    tprint.memory(s16.main_memory, 'main_memory')
+    # tprint.memory(s16.main_memory, 'main_memory')
     # pass
 
 if __name__ == "__main__":

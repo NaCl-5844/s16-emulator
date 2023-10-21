@@ -125,7 +125,9 @@ def s16_int(cpu, instruction):
 def err():
         raise KeyError('Operation does not exist')
 
-def decode(raw_instruction :bin):
+def decode(instruction :hex):
+    print(f"instruction: {instruction}")
+    raw_instruction = f"{(int(instruction, 16)):0{16}b}"
     operation_code = raw_instruction[:7]
     upper_sub_instruction = raw_instruction[7:10]
     mid_sub_instruction = raw_instruction[10:13]
