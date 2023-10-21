@@ -1,3 +1,19 @@
+# -------- [ DESCRIPTION ] -------- #
+This output shows a test where data is read from memory into
+the GPRs, then stored back to a new address. As writes raise
+the dirty* flag, when the written cache entry is evicted, it
+will be writted to a higher order cache or back to main memory
+This procedure is known as write-back**.
+
+Although it's hard to follow, the tables "l1_d" shows entries being
+duplicated and evicted. Finally the last table shows the data
+properly copied, evicted and written back to main memory.
+
+*https://en.wikipedia.org/wiki/Dirty_bit
+**https://www.geeksforgeeks.org/write-through-and-write-back-in-cache
+# -------- [ /DESCRIPTION ] -------- #
+
+
 combined ROM + RAM {
 
         0x0  0x2  0x4  0x6  0x8  0xa  0xc  0xe

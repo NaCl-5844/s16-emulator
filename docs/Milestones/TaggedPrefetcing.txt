@@ -1,4 +1,17 @@
-[kmno4@kmno4 src]$ /usr/bin/env python /home/kmno4/Documents/Brogramming/s16-emulator/src/s16.py
+# -------- [ DESCRIPTION ] -------- #
+
+Tagged prefetch* uses a flag inside each cacheline/page
+which is modified when accessed to prefetch the next
+sequential page.
+
+This progam output shows the test in which the ROM is
+prefetched into the instruction cache once it is has
+accessed.
+
+* Prof. Dr. Ben H. Juurlink,
+Prefetching Sequential and Strided Prefetching:
+https://youtu.be/cDh1AeJ7fLo?si=7PFBkye02VvKnweu
+# -------- [ /DESCRIPTION ] -------- #
 
 ...initialising l1_inst_cache
 ROM {
