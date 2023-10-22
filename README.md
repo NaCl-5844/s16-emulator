@@ -1,6 +1,6 @@
 # s16-emulator
 
-s16 is a simple ISA, 16-bits and a project to learn how to make a low level CPU emulation. 
+s16 is a simple ISA, 16-bits, and a project to learn how to make a low level CPU emulation. 
 
 Main Goals:
   - Implement main arithmetic, branching and memory instructions
