@@ -1,21 +1,21 @@
-[key: x=opcode s=subop, a|b=source, c=dest, n=imm/val]
+[key: x=opcode s=subop, z=subop extention, a|b=source, c=dest, n=imm/val]
 Operations:
 
+v2-s16
 xxxx|op-|format-------------
-0000 ior 000xxxx-ccc-bbb-aaa <ior r0 r0 r0> == noop -- special case
-0001 and 000xxxx-ccc-bbb-aaa
-0010 xor 000xxxx-ccc-bbb-aaa
-0011 add 000xxxx-ccc-bbb-aaa
-0100 adc 000xxxx-ccc-bbb-aaa
-0101 sub 000xxxx-ccc-bbb-aaa
-0110 sbb 000xxxx-ccc-bbb-aaa
-0111 abs 000xxxx-ccc-sss-aaa sss: abs neg sxt two inv
-1000 bd  000xxxx-ccc-sss-aaa sss: lzc tzc bc  bfm bfl bvl bvm / bd: bit data / bf[l/m] = [l/m]sb / bv[l/m] = value
-1001 lim 000xxxx-ccn-nnn-nnn   c: r0,r4 / n..: sign extended ±127
-1010 bsh 000xxxx-sss-bbb-aaa sss: bsl bsr asr csl csr
-1011 ls  000xxxx-sss-bbb-aaa sss: ldb ldw ldp stb stw stp mv  cmv / [b]yte [w]ord=2B [p]age=2B*8
-1100 cmp 000xxxx-sss-bbb-aaa sss: sn  lt  le  eq  gt  ge  slt sgt / return: false=0 true=1 /
-1101 tst 000xxxx-sss-bbb-aaa sss: tio tno tan tna txn tim tni tfc / return: false=0 true=1 / tf[lag]c[out]
-1110 jmp 000xxxx-sss-bbb-aaa sss: jal jrr jrd jir  cjr cjd cji ret / bbb: ađdr / aaa: cmp to true=1
-1111 int 000xxxx-nnn-nnn-nnn n..: interupt code, data or address [wip]
-
+0000 al1 xxxx-ssss-bbbb-aaaa ssss: ior nor and nan xor xno nim imp abs neg sxt two inv inc dec avr
+0001 al2 xxxx-ssss-bbbb-aaaa ssss: bsl bsr asr csl csr lzc tzc bc  bfm bfl bvl bvm brs bst .
+0010 alx xxxx-ssss-bbbb-aaaa ssss: adc sbb mul mlu ___ ___ . . . . . . . . . / *fast log two
+0011 add xxxx-cccc-bbbb-aaaa
+0100 sub xxxx-cccc-bbbb-aaaa
+0101 ___ ____-____-____-____
+0110 ___ ____-____-____-____
+0111 ___ ____-____-____-____
+1000 ___ ____-____-____-____
+1001 ___ ____-____-____-____
+1010 ___ ____-____-____-____
+1011 lim xxxx-cccn-nnnn-nnnn n...: sign extended ±256
+1100 ls  xxxx-ssss-bbbb-aaaa ldb ldw ___ ldp stb stw ___ stp mv cmz ___ ____ ldfl stfl . .  / [b]yte [w]ord=2B [p]age=16B
+1101 cmp xxxx-ssss-bbbb-aaaa tio tno tan tna txn tim tni tfc sn  lt  le  eq  gt  ge  slt sgt
+1110 jmp xxxx-ssss-bbbb-aaaa jlr jld jrr jrd jir brz brc brs bdz bdc bds mrc mrz mrs ret
+1111 int xxxx-nnnn-nnnn-nnnn n...: interupt code, data or address [wip]
