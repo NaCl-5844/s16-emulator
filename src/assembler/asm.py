@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 from sys import argv
+import os.path
 import re
 # Long Term Goals:
 # > Code and assemble in the command-line/shell then output to hex/bin file
@@ -15,10 +16,12 @@ class LineArgumentError(KeyError):
 
 def get_assembly(assembly_file):
     assembly = {}
-    with open(assembly_file, 'r') as f:
+    with open(os.path.join(os.path.dirname(__file__), 'assembly', assembly_file), 'r') as f:
         for line_number, line in enumerate(f):
             split_line = re.split(' ', line, 1)
-            if len(line.split()) >= 2:
+            if (type(split_line) == int) or ('_' in split_line):
+                raise AssemblyError
+            if len(split_line) >= 2:
                 assembly[line_number] = (split_line[0], (re.split('\n| ;', split_line[1])[0]).rstrip())
                 # print(f"file line number: {line_number}\nRaw line: {line}Split line: {split_line}\nAssembly: {assembly[line_number]}\n") # [ DEBUG ]
     return assembly #assembly[line_address] -> (op, 'operand string')
@@ -32,7 +35,7 @@ def get_reference_cache(assembly, format_file):
         checksum, line_sum = 0, 0 # both variables equal zero
         for line in f:
             split_line = line.split()
-            if len(split_line) > 1 and split_line[0] in operation_set:
+            if (len(split_line) > 1) and (split_line[0] in operation_set):
                 clean_line = split_line[1].replace('-', '')
                 reference_cache[split_line[0]] = clean_line
                 checksum += len(clean_line) # checksum checks for consistent bit length in source assembly
@@ -87,7 +90,7 @@ def parse(assembly, reference_cache, output_format):
     return bytecode
 
 def store_to_file(bytecode, file_name):
-    with open(file_name, 'w') as output_file:
+    with open(os.path.join(os.path.dirname(__file__), os.pardir, 'bytecode', file_name), 'w') as output_file:
         for line, code in enumerate(bytecode):
             output_file.writelines(f"{bytecode[line]}\n")
             print(bytecode[line]) # [ DEBUG ]
@@ -96,7 +99,7 @@ def print_help():
     print("""
     OPTION\tDESCRIPTION
 
-    asm.py -[format/option] [assembly] [filename]
+    asm.py -[format/option] [assembly file] [output file]
 
     -h, --help\tPrint help
     -b\t\tBinary Format
@@ -104,6 +107,8 @@ def print_help():
     -bh\t\tBoth formats, binary first
     -hb\t\tBoth formats, hex first
 
+    Place assembly in /assembly
+    Generated binaries are placed in s16-emulator/src/bytecode
     """)
     exit()
 
@@ -119,14 +124,14 @@ def main():
         else:
             raise KeyError
     except IndexError:
-        print('\nA format, source assembly file and an output filename are required.')
+        print('\nA format, source assembly file, and an output filename required.')
         print_help() # prints help then exit()
         # print("Incorrect line arguments.Correct method:\npython asm.py -[b/x/bx/xb] [assembly_in] [filename_out]")
     except KeyError:
         print('\n Please use valid options.')
         print_help() # prints help then exit()
     cleaned_assembly = get_assembly(input_file)
-    ref_cache = get_reference_cache(cleaned_assembly, '_s16_format_') # Hardcoded format file -- should check if it exists?
+    ref_cache = get_reference_cache(cleaned_assembly, '_s16v2_format_') # Hardcoded format file -- should check if it exists?
     binary_code = parse(cleaned_assembly, ref_cache, option[-1])
     store_to_file(binary_code, output_file)
     exit()

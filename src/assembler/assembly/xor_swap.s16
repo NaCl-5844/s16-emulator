@@ -1,0 +1,5 @@
+lim r0, 42
+lim r1, 127
+xor r0, r1, r0
+xor r1, r1, r0
+xor r0, r1, r0
