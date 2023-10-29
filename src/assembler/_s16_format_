@@ -43,12 +43,12 @@ add   0011-CCCC-BBBB-AAAA XXXX-CCCC-BBBB-AAAA
 
 sub   0100-CCCC-BBBB-AAAA XXXX-CCCC-BBBB-AAAA
 
-0101  ___ ____-____-____-____
-0110  ___ ____-____-____-____
-0111  ___ ____-____-____-____
-1000  ___ ____-____-____-____
-1001  ___ ____-____-____-____
-1010  ___ ____-____-____-____
+___   0101 ____-____-____-____
+___   0110 ____-____-____-____
+___   0111 ____-____-____-____
+___   1000 ____-____-____-____
+___   1001 ____-____-____-____
+___   1010 ____-____-____-____
 
 lim   1011-CCCN-NNNN-NNNN XXXX-CCCN-NNNN-NNNN
 
@@ -69,7 +69,6 @@ ___   1100-1101-BBBB-AAAA XXXX-SSSS-BBBB-AAAA
 ____  1100-1110-BBBB-AAAA XXXX-SSSS-BBBB-AAAA
 ___   1100-1111-BBBB-AAAA XXXX-SSSS-BBBB-AAAA
 
-
 tio   1101-0000-BBBB-AAAA XXXX-SSSS-BBBB-AAAA
 tno   1101-0001-BBBB-AAAA XXXX-SSSS-BBBB-AAAA
 tan   1101-0010-BBBB-AAAA XXXX-SSSS-BBBB-AAAA
@@ -86,8 +85,6 @@ gt    1101-1100-BBBB-AAAA XXXX-SSSS-BBBB-AAAA
 ge    1101-1101-BBBB-AAAA XXXX-SSSS-BBBB-AAAA
 slt   1101-1110-BBBB-AAAA XXXX-SSSS-BBBB-AAAA
 sgt   1101-1111-BBBB-AAAA XXXX-SSSS-BBBB-AAAA
-
-
 
 jir   1110-0000-NNNN-NNNN XXXX-SSSS-NNNN-NNNN
 jrr   1110-0001-BBBB-AAAA XXXX-SSSS-BBBB-AAAA

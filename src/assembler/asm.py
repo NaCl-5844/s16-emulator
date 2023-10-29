@@ -24,14 +24,10 @@ def get_assembly(assembly_file):
                 raise AssemblyError
             if len(split_line) >= 2:
                 if split_line[1][0] == ';':
-                    # print('----------------------------------------> F')
                     assembly[line_number] = (split_line[0], None)
                 else:
                     assembly[line_number] = (split_line[0], (re.split('\n| ;', split_line[1])[0]).rstrip())
-                # print(f"file line number: {line_number}\nRaw line: {line}Split line: {split_line}\nAssembly: {assembly[line_number]}\n") # [ DEBUG ]
     return assembly #assembly[line_address] -> (op, 'operand string')
-
-
 
 def get_reference_cache(assembly, format_file): # Generate a {set} of (instruction,format) tuples to save time lookup/translation speed
     reference_cache = {}
@@ -53,7 +49,6 @@ def get_reference_cache(assembly, format_file): # Generate a {set} of (instructi
     else:
         raise FormatFileError('Inconsistent bit-lengths in format file.')
 
-
 def get_addressing_modes(format_file):
     all_instructions = []
     with open(format_file, 'r') as f:
@@ -71,8 +66,6 @@ def get_assembly_instructions(format_file):
             if (len(split_instruction_format) > 2) and ('_' not in instruction_format):
                 all_instructions.insert(0, split_instruction_format[0])
     print(set(all_instructions))
-
-
 
 def parse(assembly, reference_cache, implement_formats):
     bytecode = {}
@@ -102,7 +95,6 @@ def parse(assembly, reference_cache, implement_formats):
             partial_bytecode = partial_bytecode.replace(format_operand * bit_length, binary_operand) # e.g. 'A' * 4 = 'AAAA'
         bytecode[line] = partial_bytecode
     return bytecode
-
 
 def store_to_file(bytecode, file_name):
     with open(os.path.join(os.path.dirname(__file__), os.pardir, 'bytecode', file_name), 'w') as output_file:
