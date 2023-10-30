@@ -1,71 +1,79 @@
- # [ FETCH ]
-    { read l1_instr_cache }
-    # Hits will mean no cost, however a miss could mean accessing main memory
-    #   > caches can return a hit or a miss (and update by reference, instantly)
-    #       - HIT: returns the cache that was hit -> each cache can have a cost
-    #       - MISS: returns None -> had to access main memory, maximum cost
-    #   > Currently, prefetching is the only way to populate l1_instr_cache [ TODO ]
-    #   > class method: jump() should be added. To:
-    #       a) modify program_counter
-    #       b) to call the modiied pc-addressed page into l1_instr_cache
-    #       c) if MISS -> stall for maximum, if HIT -> stall for respective cache cost
+# [ FETCH ]
+   #{ read l1_instr_cache }
+   #
+   # Hits will mean no cost, however a miss could mean accessing main memory
+   #  > caches can return a hit or a miss (and update by reference, instantly)
+   #     - HIT: returns the cache that was hit -> each cache can have a cost
+   #     - MISS: returns None -> had to access main memory, maximum cost
+   #  > Currently, prefetching is the only way to populate l1_instr_cache [ TODO ]
+   #  > class method: jump() should be added. To:
+   #     a) modify program_counter
+   #     b) to call the modiied pc-addressed page into l1_instr_cache
+   #     c) if MISS -> stall for maximum, if HIT -> stall for respective cache cost
 
-    { pre-decode } [ TODO ]
-    #
-    # Predecode op_code to give hints cycle cost
-    #   - Some op_codes hold instructions with a 30~50% chance of being > 1 cycle
-    #   - Some op_codes are ~90-100% likely to be > 1 cycle
-    #   - The "hardware" cost is minimal (4-bit decoder, <8 outputs,less than half of the isa is > 1 cycle)
-    #   > What can be done with "hints"?
-    #       - The dependancy_matrix will need to be able to check for dependancies for the slowest instructions
-    #       - Thus a dependancy_matrix must not be cleared by shortlived instructions
-    #       - Hints can assign opcodes(+pc bits for a tag) a "slow" or "unknown length" instructions
-    #       - These slots will keep checking dependancies with incoming instructins until they are finished
-    #
-    # Simultaneously, generate instruction_tag:
-    #   > The program_counter's address for a given instruction is used to generate the instruction_tag:
-    #       - upper 7-bits are "bit added" to form instruction_tag's upper 3-bits
-    #       - lower 9-bits make up instruction_tag's lower 9-bits
-    #       - in total a 12-bit instruction_tag
-    #       - (Not sure if this is better than disposing of the upper 4-bits and using the remaining 12)
-    #   > bit add scales with a binary tree (7-bits = 3 steps) and can start as soon as the program_counter updates
-    #   > Overlaps in a instruction_tag will be catastrophic without a check -> if true: stall.
-    #
-    # Update dependancy_matrix with hint, instruction_tag and operands
-    #   - A flag is required, which is cleared when instruction is fully decoded
+   # { pre-decode } [ TODO ]
+   #
+   # Predecode op_code to give hints cycle cost
+   #  - Some op_codes hold instructions with a 30~50% chance of being > 1 cycle
+   #  - Some op_codes are ~90-100% likely to be > 1 cycle
+   #  - The "hardware" cost is minimal (4-bit decoder, <8 outputs,less than half of the isa is > 1 cycle)
+   #  > What can be done with "hints"?
+   #     - The dependancy_matrix will need to be able to check for dependancies for the slowest instructions
+   #     - Thus a dependancy_matrix must not be cleared by shortlived instructions
+   #     - Hints can assign opcodes(+pc bits for a tag) a "slow" or "unknown length" instructions
+   #     - These slots will keep checking dependancies with incoming instructions until they are finished
+   #
+   # Simultaneously, generate instruction_tag:
+   #  > The program_counter's address for a given instruction is used to generate the instruction_tag:
+   #     - upper 7-bits are "bit added" to form instruction_tag's upper 3-bits
+   #     - lower 9-bits make up instruction_tag's lower 9-bits
+   #     - in total a 12-bit instruction_tag
+   #     - (Not sure if this is better than disposing of the upper 4-bits and using the remaining 12)
+   #  > bit add scales with a binary tree (7-bits = 3 steps) and can start as soon as the program_counter updates
+   #  > Overlaps in a instruction_tag will be catastrophic without a check -> if true: stall.
+   #
+   # Finally, update dependancy_matrix with hint, instruction_tag and operands
+   #   - A flag is required, which is cleared when instruction is fully decoded
 
- # [ DECODE ]
-    { dependancy_matrix } [ TODO ]
-    # Instruction.decode(instruction) -> instruction_entry = (<func>. op, er, ands, cost)
-    #
-    # issue instruction_entry into dependancy_matrix:
-    #   > dependancy_matrix layout: [ hint_flag | instr_tag | C | B | A ]
-    #       - Depth can be configured, default=8*
-    #           *8 means, 7 waiting/slow instructions + a stream of independant single-cycle instructions
-    #   > the dependancy_matrix hardware must include a way to check with the ROB for completed instructions.
-            - instructions can carry their instruction tag
+# [ DECODE ]
+   # { dependancy_matrix } [ TODO ]
+   #
+   # Instruction.decode(instruction) -> instruction_entry = (<func>. op, er, ands, cost)
+   #
+   # issue instruction_entry into dependancy_matrix:
+   #  > dependancy_matrix layout: [ hint_flag | instr_tag | C | B | A ]
+   #     - Depth can be configured, default=8*
+   #          *8 means, 7 waiting/slow instructions + a stream of independant single-cycle instructions
+   #  > the dependancy_matrix hardware updates based on the execution_queue's "completed" instruction:
+   #     - instructions also carry their instruction_tag
+   #     - instruction_tag is searched
 
-    # memory access can only be encoded with the cost of accessing main memory. # TODO: modify memory accesses to comply with unique costs
-    #   > assume max cost in [ DECODE ] stage
-    #   > .read and .write will return where a hit came from
-    #   > location is traced to a cost within the [ EXECUTE ] stage
-    #   > modidify instruction_entry with true cost
-    #   > **** the write_buffer will be able to accept reads from the write buffer for 1-2 cycles(cost) ****
-    # Append instruction_entry into execution_queue
+   # memory access can only be encoded with the cost of accessing main memory. # TODO: modify memory accesses to comply with unique costs
+   #  > assume max cost in [ DECODE ] stage
+   #  > .read and .write will return where a hit came from
+   #  > location is traced to a cost within the [ EXECUTE ] stage
+   #  > modidify instruction_entry with true cost
+   #  > **** the write_buffer will be able to accept reads from the write buffer for 1-2 cycles(cost) ****
+   # Append instruction_entry into execution_queue
 
- # [ EXECUTE ]
-    # The execution_queue:
-    #   > Applies a instruction_tag to instruction_entry
-    #   > Send instruction_entry into respective queues -- alu_queue, slow_alu_queue, write_buffer (, read_buffer hmmm)
-    #   > The instruction cost is reduced by 1 each clock cycle
-    #   > when cost == 0, the instruction is written back to the register
-
-
-
+# [ EXECUTE ]
+   # { execution_queue } [ TODO ]
+   # Instructions are issued into a FIFO execution_queue:
+   #  > execution_queue holds instruction entries until they can be written back
+   #  > the instruction cost is reduced by 1 each clock cycle
+   #  > IF a store, send instruction_entry to write_buffer (do I need a read_buffer? hmmm)
+   #     - a write_buffer allows instructions to read from recent memory accesses#
+   #     - (not sure why this is needed if you have caches)
 
 
 # [ WRITEBACK ]
-    # Each cycle:
-    # > Take
+   # When (cost == 0) AND (the most recent instruction):
+   #  - instruction is written back to the register
+   #  - dependancy_matrix matches instruction_tag and evicts the matching entry
+   # Finally, increment program_counter
 
-    # Finally, increment program_counter
+
+
+
+
+
