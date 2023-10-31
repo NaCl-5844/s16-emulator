@@ -13,6 +13,7 @@ Main Goals:
   *Access speeds are rarely equal over a given memory structure
 
 Long-Term Goals:
+  - Output a file containing changes in memory and functional units each cycle
   - Overhaul replacement algorithms with cycle costs, and add more complex algorithms
   - Peripherals such as a simple screen and user input
   - Code some example demo's and benchmarks
@@ -20,7 +21,6 @@ Long-Term Goals:
 
 ## Milestones 
   - Configurable main memory size ✓
-  - Output a file containing changes in memory and functional units each cycle ✓
   - Take s16 assembly from a file -> assemble microcode -> place in emulator memory ✓
   - Configurable, write-back cache hierarchy with:
     - Level 1 Data and Instruction Caches \[Currently Required\] ✓
