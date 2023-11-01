@@ -70,17 +70,23 @@
    Instructions are issued into a FIFO execution_queue:
    > execution_queue holds instruction entries until they can be written back
    > the instruction cost is reduced by 1 each clock cycle
-   > IF a store, send instruction_entry to write_buffer (do I need a read_buffer? hmmm)
-      - a write_buffer allows instructions to read from recent memory accesses
-      - (not sure why this is needed if you have caches -- nvm, smaller and closer then at least l2 if not l1 and l2)
+
+   { handling writes/stores } [ TODO ]
    > .read and .write will return where a hit came from
-   > location is traced to a cost within the [ EXECUTE ] stage
-   > modidify instruction_entry with true cost
-   > **** the write_buffer will be able to accept reads from the write buffer for 1-2 cycles(cost) ****
+   > location is translated into a cost
+   > modidify instruction_entry with true cost, including the decrement
+
+   I'm debating implementing a write_buffer in s16. May add once cycle cost work is complete
+   > IF a store, send instruction_entry to write_buffer (may need a read_buffer too?)
+      - a write_buffer allows instructions to read from recent memory accesses
+      - write_buffer is smaller and closer then at least l2 (if not l1 and l2)
+
+   { evict instruction_entry -> ROB } [ TODO ]
 
 
 [ WRITEBACK ]
-   { writeback evicted instruction_entry } [ TODO ]
+   In terms of the emulator, this is where the full instruxtion is evaluated and registers are updated
+
    { dependancy_matrix eviction } [ TODO ]
    When (cost == 0) AND (the most recent instruction):
    - instruction is written back to the register

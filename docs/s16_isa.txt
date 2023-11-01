@@ -3,7 +3,7 @@ Operations:
 
 v2-s16
 xxxx|op-|format-------------
-0000 al1 xxxx-ssss-bbbb-aaaa ssss: ior nor and nan xor xno nim imp abs neg sxt two inv inc dec avr
+0000 al1 xxxx-ssss-bbbb-aaaa ssss: ior nor and nan xor xno abs neg sxt two inv avr inc dec . .
 0001 al2 xxxx-zsss-bbbb-aaaa ssss: bsl bsr asr csl csr lzc tzc bc  bfm bfl bvl bvm brs bst . .
 0010 alx xxxx-ssss-bbbb-aaaa ssss: adc sbb mulb mul ___ ___ . . . . . . . . . / *fast log two
 0011 add xxxx-cccc-bbbb-aaaa
@@ -18,4 +18,4 @@ xxxx|op-|format-------------
 1100 ls  xxxx-ssss-bbbb-aaaa ldb ldw ldp stb stw stp mv  cmvz cmvc cmvo cmvs ___ ___ ___ ___ .  / [b]yte [w]ord=2B [p]age=16B
 1101 cmp xxxx-ssss-bbbb-aaaa tio tno tan tna txn tim tni tfc sn  lt  le  eq  gt  ge  slt sgt
 1110 jmp xxxx-ssss-bbbb-aaaa jlr jld jrr jrd jir brz brc brs bdz bdc bds mrc mrz mrs . ret
-1111 ext xxxx-ssss-nnnn-nnnn ssss: lpc lsr lcr scr . . . . . . . . . . int / n...: interupt code, data or address [wip]
+1111 ext xxxx-ssss-nnnn-nnnn ssss: lpc lsr lcr scr clr . . . . . . . . . int / n...: interupt code, data or address [wip]
