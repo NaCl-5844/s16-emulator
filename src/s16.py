@@ -20,33 +20,22 @@ import tprint
 #
 # s16  = Simple 16
 # Page = Block of 32 Bytes = (16-bits*16)/8 -- I'm allowing this to be modifiable
-# Cache:
-#   - https://en.wikipedia.org/wiki/Cache_placement_policies#Set-associative_cache
-#   - https://www.geeksforgeeks.org/write-through-and-write-back-in-cache
 #
-#   > Do I want reads flushing i_cache?
-#
-# Dirty Bit:
-#   - Don't get the order mixed up:
-#       * When page is modified, the dirty bit is set to True
-#       * Upon eviction, the modified page needs go through the write-back process
-#   - https://en.wikipedia.org/wiki/Dirty_bit
-# Adding date and time to a file:
-#   - https://www.geeksforgeeks.org/how-to-create-filename-containing-date-or-time-in-python/
+
+
 
 # BUG LIST:
 # > .read() and .write() methods do not extract correct address when managing evicted cache entries
 #   -- <current_cache>_tag and <current_cache>_way must be combined then split ccording to the configuration of the higher order cache
 # >
 # >
-# > ROM address-space cannot be above RAM's address-space [[ This may not matter, keep in BUG for now ]]
+# >
 # > Only binary file-types can be generted/used (MAY NOT IMPLEMENT BUT ATTACH A BIN -> HEX CONVERTER SCRIPT)
 
 # TODO LIST:
-# > Create a simple instruction prefetch
-# > Test write-back functionality, through .read() and .write() methods
+# > Implement call, return and register_window https://en.wikipedia.org/wiki/Register_window
 # >
-# > Make a basic single cycle loop to test the: pc, read, write, l1_inst_cache and instruction.decode
+# >
 # > When the project hits v1.x.x make an effort to properly comment s16.py and supporting modules
 
 
@@ -57,7 +46,7 @@ import tprint
 class Generate:
 
     @classmethod # basically a function without access to the object and its internals
-    def config(Generate, config_name :str):
+    def config(Generate, config_name):
         with open(config_name, "r") as s16_config:
             config = {}
             for line in s16_config:
@@ -146,8 +135,8 @@ class Generate:
             START_ADDRESS = int(config['ROM_START_ADDRESS'], 16)
             BYTE_CAPACITY = int(config['MAIN_START_ADDRESS'], 16) - START_ADDRESS
             starting_page = int(START_ADDRESS / PAGE_SIZE)
-            if BYTE_CAPACITY <= 0: ### BUG: ROM address-space cannot be above RAM's address-space
-                raise ConfigError('Custom start addresses not yet supported\n -- ROM_START_ADDRESS must equal 0x0.')
+            if BYTE_CAPACITY <= 0:
+                raise ConfigError('Read ony memory(ROM) must start at memory address 0\n -- ROM_START_ADDRESS must equal 0x0.')
         elif memory_type == 'MAIN':
             START_ADDRESS = int(config['MAIN_START_ADDRESS'], 16)
             BYTE_CAPACITY = config['MAIN_MEMORY_SIZE']
@@ -197,9 +186,7 @@ class Generate:
         queue = collections.deque([], config[f"{memory_type}_DEPTH"])
         return queue
 
-
     def __init__(self, config_name): # Size in bytes
-        self.initialised       = 0
         self.config            = Generate.config(config_name) # Take s16.conf key-values and place in dictionary
         self.PAGE_SIZE         = Generate.page_size(self.config) # Hardcoded, hence the CAPS, to 16 Bytes
         self.offset_bits       = self.PAGE_SIZE>>2
@@ -220,17 +207,11 @@ class Generate:
         if 'l2' in self.cache_hierarchy:
             self.l2_cache      = self.cache_hierarchy['l2']['unit'] = Generate.cache_deque(self.config, 'L2')
 
-        # -------- [ BOOT FROM ROM ] -------- #
-        if self.initialised == 0: # This can me much nicer, focus on functionality first though
-            offset_bits = self.offset_bits
-            print(f"...initialising l1_inst_cache")
-            l1_inst_tag, l1_inst_way, offset = decode.way('0000', self.cache_hierarchy['l1_inst']['config']['ways'], offset_bits)  # decodes address into TAG|WAY|OFFSET
-            first_page = decode.page('0000', offset_bits)
-            entry      = {'new': 1, 'dirty': 0, 'tag': l1_inst_tag, 'data': self.read_only_memory[first_page]}
-            self.l1_data_cache['algorithm'](self.l1_inst_cache, l1_inst_way, entry)
-            self.initialised = 1
-        else:
-            pass
+        # -------- [ BOOT FROM ROM ] -------- # Not sure what to call this. Places page_0 into l1_instr_cache
+        l1_inst_tag, l1_inst_way, offset = decode.way('0000', self.cache_hierarchy['l1_inst']['config']['ways'], self.offset_bits)
+        first_page = decode.page('0000', self.offset_bits)
+        entry      = {'new': 1, 'dirty': 0, 'tag': l1_inst_tag, 'data': self.read_only_memory[first_page]}
+        self.l1_data_cache['algorithm'](self.l1_inst_cache, l1_inst_way, entry)
         # -------- [ /BOOT FROM ROM ] -------- #
 
         self.tagged_prefetch_state      = '00' # 00: strong miss, 01: weak miss, 10: weak hit, 11: string hit
@@ -268,7 +249,7 @@ class Generate:
                 evicted_entry         = self.l1_data_cache['algorithm'](self.l1_data_cache, l1_data_way, entry) # if cache == 'l1_inst' | 'l2' -> move to 'l1_data'
                 evicted_entry_address = decode.join_keys(target_way, target_cache_ways, target_tag, offset_bits)
                 break
-        if (hit == None):
+        if hit == None:
             print('miss')
             l1_data_tag, l1_data_way, offset = decode.way(source_address, hierarchy['l1_data']['config']['ways'], offset_bits)  # decodes address into TAG|WAY|OFFSET
             entry                 = {'new': 1, 'dirty':0, 'tag': l1_data_tag, 'data': self.combined_memory[source_page]}
@@ -296,6 +277,7 @@ class Generate:
             register[sink_page]              = self.l1_data_cache[l1_data_way]['data'][l1_data_tag_index]
         else:
             raise ValueError('Check <instruction> module for cpu.read() ModeError')
+        return hit
 
 
     def write(self, source_address, sink_address, mode=""): # memory_address, register_address,  modes: [b]yte, [w]ord, [p]age
@@ -330,7 +312,7 @@ class Generate:
                 evicted_entry         = self.l1_data_cache['algorithm'](self.l1_data_cache, l1_data_way, entry) # if cache == 'l1_inst' | 'l2' -> move to 'l1_data'
                 evicted_entry_address = decode.join_keys(target_way, target_cache_ways, evicted_entry['tag'], offset_bits)
                 break
-        if (hit == None):
+        if hit == None:
             l1_data_tag, l1_data_way, offset = decode.way(sink_address, l1_data_way_count, offset_bits)  # decodes address into TAG|WAY|OFFSET
             print(f"Write Miss::address:'{sink_address}'")
             entry                 = {'new': 1, 'dirty':1, 'tag': l1_data_tag, 'data': self.register[source_page]}
@@ -361,15 +343,23 @@ class Generate:
             self.l1_data_cache[l1_data_way]['data'][l1_data_tag_index]             = register[source_page]
         else:
             raise ValueError('Check <instruction> module for cpu.write() ModeError')
+        return hit
 
 
-    def tagged_prefetch(self): # this whole method is grim :()
+    def tagged_prefetch(self): # BUG: properly test prefetching - No 'new' bit checking present
         next_address    = f"{(int(self.program_counter['address'],16)+16):04x}" # +16 increased page address by 1 -- 16-Bytes per page
         hierarchy       = self.cache_hierarchy
         offset_bits     = self.offset_bits
         live_cache      = [cache for cache in hierarchy] # order: l1_data?, l1_inst?, l2?
         source_page     = decode.page(next_address, offset_bits)
         hit             = None
+
+        # if decoded<current_address>[l1_inst][way_x]['new'][index] == 1: # not accessed
+        #   return None#
+        # else:
+        #   pass # and do all the stuff below
+
+
 
         # -------- [ L1 INST FOCUSED HIERARCHY MANAGEMENT ] -------- #
         for target_cache in live_cache:
@@ -397,7 +387,7 @@ class Generate:
                 evicted_entry         = self.l1_inst_cache['algorithm'](self.l1_inst_cache, l1_inst_way, entry) # if cache == 'l1_inst' | 'l2' -> move to 'l1_data'
                 evicted_entry_address = decode.join_keys(target_way, target_cache_ways, target_tag, offset_bits)
                 break
-        if (hit == None):
+        if hit == None:
             print('miss')
             l1_inst_tag, l1_inst_way, offset = decode.way(next_address, hierarchy['l1_inst']['config']['ways'], offset_bits)  # decodes address into TAG|WAY|OFFSET
             entry                 = {'new': 1, 'dirty':0, 'tag': l1_inst_tag, 'data': self.combined_memory[source_page]}
@@ -417,53 +407,46 @@ class Generate:
         # -------- [ /L1 INST FOCUSED HIERARCHY MANAGEMENT ] -------- #
 
 
-
-
-
-
-
-
-    def ref_prediction_prefetch(self): # Bruh do the "Tagged" Prefetching first -- this is for data load/stores.
-        # check reference_prediction_table if stride == 0 for current tag & state ==
-        # if cache[way_x][new][page] == False: # The page has been accessed -> NOT "new"
-        #   pc_address = get_current_pc_address
-        #
-        #
-        # tag = self.program_counter['address']
-        # if len(self.reference_prediction_table) > 0:
-        #     if tag in self.reference_prediction_table['tag']
-        pass
-
-
     def step_clock(self): # fully step through cpu stages
         print('----cycle----')
         counter = self.program_counter
 
+        # [ FETCH ]
+        # { prefetch } # BUG: properly test prefetching -
+        # { read l1_instr_cache }
+        # { pre-decode } [ TODO ]
+        #   > { generate instruction_tag} [ TODO ]
+        #   > { generate instruction_matrix hint } [ TODO ]
 
-        # [ DECODE ]
-        # print(read.cache(self.l1_inst_cache, self.read_only_memory, counter['address']))
+
         l1_inst_tag, l1_inst_way, offset = decode.way(counter['address'], self.cache_hierarchy['l1_inst']['config']['ways'], self.offset_bits)
         l1_inst_tag_index = self.l1_inst_cache[l1_inst_way]['tag'].index(l1_inst_tag)
-        print(instruction.decode(self.l1_inst_cache[l1_inst_way]['data'][l1_inst_tag_index][f"{offset:x}"]))
+        raw_instruction = self.l1_inst_cache[l1_inst_way]['data'][l1_inst_tag_index][f"{offset:x}"]
+
+        # [ DECODE ]
+        # { decode instruction }
+        # { populate dependancy_matrix } [ TODO ]
+        # { populate execution_queue } [ TODO ]
 
 
-
-        # [ FETCH ]
-
+        s16_instruction, cost, upper_field, middle_field, lower_field = instruction.decode(raw_instruction)
+        instruction_entry = {'instr': s16_instruction, 'cost': cost, 'u': upper_field, 'm': middle_field, 'l': lower_field}
+        print(s16_instruction)
 
 
 
         # [ EXECUTE ]
+        # { execution_queue eviction } [ TODO ]
 
 
 
 
         # [ WRITEBACK ]
-
-
-        # FINAL STEP
+        # { writeback evicted instruction_entry } [ TODO ]
+        # { dependancy_matrix eviction } [ TODO ]
+        # { increment program_counter }
         counter['address'] = f"{(int(counter['address'],16)+int(counter['offset'],16)):04x}"
-        pass
+
 
 
 
@@ -484,14 +467,13 @@ def main():
     # write_address = '0080'
 
     i=0
-    while i < 9: # simple test loop
+    while i < 14: # simple test loop
         print(i)
         tprint.cache(s16.l1_inst_cache)
         s16.tagged_prefetch()
         s16.step_clock()
         i+=1
-    # tprint.memory(s16.main_memory, 'main_memory')
-    # pass
+
 
 if __name__ == "__main__":
     main()

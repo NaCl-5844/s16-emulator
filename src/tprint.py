@@ -19,7 +19,7 @@ def cache(cache, name=""):
         print(way.replace('ay_', ':'), end='') # 'way_X' -> 'w:X'
         for index, tag in enumerate(cache[way]['tag']): # prints current population of cache
             print(f"\t{tag} {' '.join(list(cache[way]['data'][index].values()))}")
-        for unpopulated in range(max_length-population):
+        for unpopulated in range(max_length-population): # fills in unpopulated cache entries
             empty_page = ['0000' for word in range(8)]
             print(f"\t____ {' '.join(empty_page)}")
 

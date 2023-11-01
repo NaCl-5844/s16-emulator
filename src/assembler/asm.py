@@ -2,6 +2,10 @@
 from sys import argv
 import os.path
 import re
+
+# TODO:
+# > Add edgecase for <inc> and <dec>, which adds n+1 and subtracts n+1 respectively
+
 # Long Term Goals:
 # > Assembly files with formats .s16 and .t16 will automatically pick the correct _format_ file
 # > Code and assemble in the command-line/shell then output to hex/bin file
@@ -82,10 +86,16 @@ def parse(assembly, reference_cache, implement_formats):
             format_operand = cleaned_format[0]
             bit_length = config[format_operand]
             assembly_operand = operands.split(',', 1)[0]
+            if ((operation == 'inc') or (operation == 'dec')) and ((assembly_operand == '0') or (assembly_operand[0] == '-')):
+                    raise AssemblyError(f" Invalid negative or zero integer usage on line {line+1}: {assembly[line]}")
+
             if (assembly_operand[0] == 'r') and assembly_operand[1:].isdigit():
                 binary_operand = f"{int(assembly_operand[1:]):0{bit_length}b}"
             elif assembly_operand.isdigit():
-                binary_operand = f"{int(assembly_operand):0{bit_length}b}"
+                if (operation == 'inc') or (operation == 'dec'):
+                    binary_operand = f"{int(assembly_operand)-1:0{bit_length}b}"
+                else:
+                    binary_operand = f"{int(assembly_operand):0{bit_length}b}"
             elif (assembly_operand[0] == '-') and assembly_operand[1:].isdigit():
                 binary_operand = f"{((1<<bit_length)-1)-int(assembly_operand[1:])+1:0{bit_length}b}"
             else:
@@ -94,6 +104,7 @@ def parse(assembly, reference_cache, implement_formats):
             cleaned_format = cleaned_format.strip(format_operand)
             partial_bytecode = partial_bytecode.replace(format_operand * bit_length, binary_operand) # e.g. 'A' * 4 = 'AAAA'
         bytecode[line] = partial_bytecode
+        print(locals())
     return bytecode
 
 def store_to_file(bytecode, file_name):
