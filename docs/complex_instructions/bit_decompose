@@ -1,0 +1,201 @@
+
+[ BIT DECOMPOSE ]
+
+Decomposes all high bits into their respective "bit value" + 1 and represents
+them in an 8-bit or 16-bit integer.
+
+To compress the data, the output integer can be:
+
+    "ALL"       - displays "HIGH"[1] bit values, up to X* bit values
+    "EXCEPT"    - displays "LOW"[0] bit values, up to (total - x*) bit values
+
+    *x being dependant on the bit length of the opertion.
+
+
+This design means the output value cannot dynamically exede the desired outut bit
+length.
+
+For example, in the [ bbd ] (byte) instruction, an 8-bit value is decomposed and
+returns a 16-bit value. A high bit, inside the input value, will return a 3-bit*
+value. An uncompressed worst case scenario would result in a 24-bit value.
+
+*As well as an inability to represent all bits. [ bbd ] uses 3-bits to represent
+the UNSIGNED portion of the value.
+
+Here are the three different representations of an output value for [ bbd ]:
+
+
+    IF (# of HIGH bits inside byte < 4):
+        - output up to 4 3-bit values, aka b0-b12 could be filled with bit values
+        - these values represent any 4 HIGH bits the input values
+        - b14 is set to 0
+
+    IF (# of HIGH bits inside byte > 4):
+        - output 3 3-bit values
+        - these bits represent the remaining LOW bits
+        - b14 (msb-1) is set to 1
+
+    IF (byte SIGNED):
+        - b15 (msb) set to 1
+
+
+Unsigned nibble decompostion can fit nicely into a byte, meaning this will
+disregard the "all except" format. However, it will still use a signed bit.
+
+
+WORKED EXAMPLES
+---------------
+
+[ NBD ] - [N]IBBLE [B]IT [D]ECOMPOSE
+
+( example 1 )
+
+           b3  b2  b1  b0
+          +---+---+---+---+
+input   = | 1 | 0 | 0 | 1 |
+          +---+---+---+---+
+
+
+           b7  b6  b5  b4  b3  b2  b1  b0
+          +---+---+---+---+---+---+---+---+
+output  = | 1 | 0 | 0 | 0 | 0 | 0 | 0 | 1 |
+          +---+---+---+---+---+---+---+---+
+            ^                       ^   ^
+       signed                       +---+
+                                      |
+                         bit 0(+1) = 01
+
+( example 2 )
+
+           b3  b2  b1  b0
+          +---+---+---+---+
+input =   | 0 | 1 | 1 | 1 |
+          +---+---+---+---+
+
+
+           b7  b6  b5  b4  b3  b2  b1  b0
+          +---+---+---+---+---+---+---+---+
+output =  | 0 | 0 | 1 | 1 | 1 | 0 | 0 | 1 |
+          +---+---+---+---+---+---+---+---+
+            ^   ^   ^   ^   ^   ^   ^   ^
+     unsigned   |   +---+   +---+   +---+
+                |     |       |       |
+     "wasted bit"     b2(+1)  b1(+1)  b0(+1)
+
+---
+
+[ BBD ] - [B]YTE [B]IT [D]ECOMPOSE
+
+( example 3 )
+
+           b7  b6  b5  b4  b3  b2  b1  b0
+          +---+---+---+---+---+---+---+---+
+input =   | 0 | 0 | 1 | 0 | 1 | 0 | 1 | 0 |
+          +---+---+---+---+---+---+---+---+
+
+
+           b15 b14 b13 b12 b11 b10 b9  b8  b7  b6  b5  b4  b3  b2  b1  b0
+          +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
+output =  | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 1 | 1 | 0 | 1 | 0 | 0 | 0 | 1 | 0 |
+          +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
+            ^   ^                       ^   ^   ^   ^   ^   ^   ^   ^   ^
+     unsigned   |                       +---+---+   +---+---+   +---+---+
+                |                           |           |           |
+            "all"                           b5(+1)      b3(+1)      b1(+1)
+
+
+
+( example 4 )
+
+           b7  b6  b5  b4  b3  b2  b1  b0
+          +---+---+---+---+---+---+---+---+
+input =   | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 0 |
+          +---+---+---+---+---+---+---+---+
+
+
+           b15 b14 b13 b12 b11 b10 b9  b8  b7  b6  b5  b4  b3  b2  b1  b0
+          +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
+output =  | 1 | 1 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 1 |
+          +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
+            ^   ^                                               ^   ^   ^
+       signed   |                                               +---+---+
+                |                                                   |
+     "all except"                                                   b1(+1)
+
+
+
+( example 5 )
+
+           b7  b6  b5  b4  b3  b2  b1  b0
+          +---+---+---+---+---+---+---+---+
+input =   | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 1 |
+          +---+---+---+---+---+---+---+---+
+
+
+           b15 b14 b13 b12 b11 b10 b9  b8  b7  b6  b5  b4  b3  b2  b1  b0
+          +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
+output =  | 1 | 1 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+          +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
+            ^   ^
+       signed   |   ( all except "nothing" = "all" = input was all 1s )
+                |
+     "all except"
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ b15 b14 b13 b12 b11 b10 b9  b8  b7  b6  b5  b4  b3  b2  b1  b0
++---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
+|   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
++---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
+
+
+
+ b15 b14 b13 b12 b11 b10 b9  b8  b7  b6  b5  b4  b3  b2  b1  b0
++---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
+|   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
++---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
+
+
+
+ b15 b14 b13 b12 b11 b10 b9  b8  b7  b6  b5  b4  b3  b2  b1  b0
++---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
+|   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
++---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
+
+ b15 b14 b13 b12 b11 b10 b9  b8  b7  b6  b5  b4  b3  b2  b1  b0
++---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
+|   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
++---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -36,7 +36,9 @@ COST - the number of cycles an operation takes to reach and complete a writeback
 be encoded in two places: fetch(predecode), where cost is encoded with LOW certainty, and decode, where cost is encoded
 with COMPLETE certainty. The more in-depth explanation can be found in  < insert correct doc(s) here >.
 
-HINT_FLAG - is raised(1) when COST generated in PREDECODE and is cleared(0) when the true COST is generated in DECODE.
+HINT_FLAG - is raised(1) when COST generated in PREDECODE* and is cleared(0) when the true COST is generated in DECODE.
+
+*Depending on the group of instructions, a true cost can be generated in PREDECODE. In this case HINT_FLAG stays 0.
 
 INSTRUCTION_TAG - is generated in PREDECODE and follows the instruction throughout the pipeline. It also allows
 lookups inside the dependancy_matrix
@@ -59,12 +61,15 @@ SOURCE_OPERANDS A, B -
 
 { dependancy_matrix flow chart }
 
+( example 1 )
+
+[ ior r1, r0
 
 FETCH (+ predecode)                     DECODE                                  EXECUTE                                 WRITEBACK
 +------------------------------+        +------------------------------+        +------------------------------+        +------------------------------+
 | instruction_entry            |        | instruction_entry            |        | instruction_entry            |        | instruction_entry            |
 +------+---+-------+---+---+---+   ->   +------+---+-------+---+---+---+   ->   +------+---+-------+---+---+---+   ->   +------+---+-------+---+---+---+
-| cost | h | i_tag | c | b | a |        | cost | h | i_tag | c | b | a |        | cost | h | i_tag | c | b | a |        | cost | h | i_tag | c | b | a |
+| 1    | 0 | xyz   |   |   |   |        | 1    | 0 | xyz   |r1 |r1 |r0 |        | 1    | 0 | xyz   |r1 |   |   |        | 0    | 0 | xyz   |r1 |   |   |
 +------+---+-------+---+---+---+        +------+---+-------+---+---+---+        +------+---+-------+---+---+---+        +------+---+-------+---+---+---+
 
 |                              |        |                              |        |                              |        |                              |
