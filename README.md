@@ -8,7 +8,7 @@ Main Goals:
   - Configurable cache size and replacement algorithms \[currently only LRU\]
   - Implement all instrutions, stress and bug test instructions, memory and cache coherence
   - cycle costs for every insruction, memory location*, cache accesses and stalls
-  - configurable prefetching and simple/naive branch prediction
+  - configurable prefetching
   
   *Access speeds are rarely equal over a given memory structure
 
