@@ -9,6 +9,7 @@ Main Goals:
   - Implement all instrutions, stress and bug test instructions, memory and cache coherence
   - cycle costs for every insruction, memory location*, cache accesses and stalls
   - configurable prefetching
+  - Simple branch prediction and branch target buffer(BTB)
   
   *Access speeds are rarely equal over a given memory structure
 
@@ -28,11 +29,15 @@ Long-Term Goals:
     - [Write-back](https://www.geeksforgeeks.org/write-through-and-write-back-in-cache/) logic should work regardless of a level 2 cache being enabled ✓
 
 - - - 
+### Final Remarks
 
-This project aims to give me the tools and knowledge to complete my dream microprocessor [t16(WIP)](https://github.com/NaCl-5844/t16) which will focus on maximum throughput for a (mostly) 16-bit architecture.
-I also plan on making much better documentation (once I hit v1.0.0) which will include the implementation of s16's:
+I'd like to repeat the purpose of s16. The aim is to learn all the skills necessary to design and emulate [t16](https://github.com/NaCl-5844/t16). Therefore, the "simplicity" of s16 is purely relative to t16. This is the rule I've made to keep my goals tamed as I learn what I need to learn, while also trying out/learning most of the concepts that'll be used in t16.
+
+I plan on making much more documentation once I hit v1.0.0, which will mark the completion of s16's:
   - Instruction set
   - CPU architecture / Pipeline
   - Cache replacement algorithms 
   - Prefetching
   - Branch prediction
+
+Please note that my documentation skills are non-existant and I'm learning as I go, so please feel free to make issues on things I should explain/do differently.
