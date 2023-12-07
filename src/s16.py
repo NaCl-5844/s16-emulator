@@ -19,20 +19,20 @@ import tprint
 # *PEP 8: https://peps.python.org/pep-0008/
 #
 # s16  = Simple 16
-# Page = Block of 32 Bytes = (16-bits*16)/8 -- I'm allowing this to be modifiable
+# Page = 8*words = 8*16-bit = 8*2B = 16-Bytes -- possibly modifiable in the future
 #
 
 
 
 # BUG LIST:
-# > .read() and .write() methods do not extract correct address when managing evicted cache entries
-#   -- <current_cache>_tag and <current_cache>_way must be combined then split ccording to the configuration of the higher order cache
+# > Check prefetch -- not properly implemented
 # >
 # >
 # >
 # > Only binary file-types can be generted/used (MAY NOT IMPLEMENT BUT ATTACH A BIN -> HEX CONVERTER SCRIPT)
 
 # TODO LIST:
+# > implement pipeline related methods
 # > Implement call, return and register_window https://en.wikipedia.org/wiki/Register_window
 # >
 # >
@@ -214,8 +214,8 @@ class Generate:
         self.l1_data_cache['algorithm'](self.l1_inst_cache, l1_inst_way, entry)
         # -------- [ /BOOT FROM ROM ] -------- #
 
-        self.tagged_prefetch_state      = '00' # 00: strong miss, 01: weak miss, 10: weak hit, 11: string hit
-        self.reference_prediction_table = Generate.queue(self.config, 'REF_PREDICTION_TABLE')
+        # self.tagged_prefetch_state      = '00' # 00: strong miss, 01: weak miss, 10: weak hit, 11: string hit
+        # self.reference_prediction_table = Generate.queue(self.config, 'REF_PREDICTION_TABLE')
 
 
     def read(self, source_address, sink_address, mode=""): # memory_address, register_address,  modes: [b]yte, [w]ord, [p]age
