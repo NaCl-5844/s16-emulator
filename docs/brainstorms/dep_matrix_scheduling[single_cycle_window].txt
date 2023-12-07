@@ -9,14 +9,15 @@ to stop writeback "blockages".
 Along with each "unary count diagram" a pipeline diagram will be shown.
 
 PLEASE NOTE:
-    - The pipeline will start from a stalled state to force the absolute worst-case scenario.
-      Thus, time prior to 0 in the unary count diagram will be represented by t-n.
-    - The first three sections use an exaggurated starting scenario in which instructions have
-      piled up in the dependancy_matrix due to a large stall.
-    - Instructions have a cycle cost in [x] brackets
+    - In the first three sections, the pipeline will start from an exaggerated stalled state
+      to force the absolute worst-case scenario. Thus, time prior to 0 in the unary count
+      diagram will be represented by t-n.
+    - Instructions have a cycle cost in [] brackets
     - All instructions are independant
         > larger stress tests with real assembly will be done soon, in this document or when
           other logic in the dep. matrix is solidified.
+        > This brainstorm only covers how instructions are issued, independant of any other
+          components needed/used in the dependancy mantrix
 
 </PREFACE>
 
