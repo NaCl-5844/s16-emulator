@@ -5,8 +5,8 @@ inc r0, 16 ; branch to page above if carry out flag true in r2
 ldw r9, r0
 inc r1, 1 ; initialise r1 for fib
 inc r2, 1 ; initialise r2 for fib
-mdc r8, r1 ; monitor r1 for carry out, if true branch to r8
-mdc r9, r2 ; monitor r2 for carry out, if true branch to r9
+mdc r1, r8 ; monitor r1 for carry out, if true branch to r8
+mdc r2, r9 ; monitor r2 for carry out, if true branch to r9
 add r1, r2, r1
 add r2, r2, r1
 jir -2 ; fib loop: add r1.. add r2.. -- jump relatve -2

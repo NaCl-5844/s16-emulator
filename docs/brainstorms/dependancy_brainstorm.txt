@@ -5,7 +5,7 @@
 
 
 
-{ dependancy_matrix entry }
+[ DEPENDANCY_MATRIX ENTRY ]
 
 The dependancy matrix is a cache-like unit which tracks the depenancies which require a stall (or possibly reordering).
 Here is how an entry is layed out within the dependancy_matrix:
@@ -22,7 +22,7 @@ Here is how an entry is layed out within the dependancy_matrix:
                                                - a     = source_operand_a
                                                - stall = waiting to clear dependancies
 
-[DESCRIPTIONS]
+{ descriptions }
 
 COST                 - the number of cycles an operation takes to reach and complete a writeback. In s16, he cost of an instruction will
                        be encoded in two places: fetch(predecode), where cost is encoded with LOW certainty, and decode, where cost is encoded
@@ -43,11 +43,11 @@ SOURCE_OPERANDS A, B - the location of data or used as addresses. Generally in l
 STALL                - raised(1) when the instruction is waiting on dependancies
 
 
-{ DEPENDANCY_MATRIX FLOW CHART }
+[ DEPENDANCY_MATRIX FLOW CHART ]
 
-( example 1 )
 
-Instruction: [ ior r1, r0 ]
+
+{ instruction example: [ ior r1, r0 ] }
 
 FETCH (+ predecode)                         DECODE                                      EXECUTE                                     WRITEBACK
 +----------------------------------+        +----------------------------------+        +----------------------------------+        +----------------------------------+
@@ -68,19 +68,18 @@ FETCH (+ predecode)                         DECODE                              
 
 
 
-{ FORWARDING }
+{ forwarding }
 
 Another aspect to consider is "forwading", as it's super important to this logic. I'm going to keep it simple and allow
 all instructions except branches, jumps and memory load instructions to forward from it's final execute stage.
 
 It would be nice to have more variation for instructions but that would mean I'd need to FULLY lay out s16 in
-hardware, and test the speeds of each unit and interconnects. Which would defeat the point if using the emulator to
+hardware, and test the speeds of each unit and interconnects. Which would deFORWARDINGfeat the point if using the emulator to
 plan the CPU.
 
 ( example forwading )
 
 KEY: [F]etch, [D]ecode, [E]xecute, [W]riteback, Bubble = []
-https://youtu.be/lkmIKoFU5mc?list=TLPQMDkxMTIwMjP2LzuzZIwFOw
 
                 | Time (cycles)
 Instructions    +---+---+---+---+---+
@@ -100,20 +99,20 @@ Cycle 2:
   EXECUTE first instruction, source operands are read
   DECODE second instruction, extracting operands and the <add> operation
 Cycle 3:
-  First instruction passes the output, which would be "r2", into WRITEBACK AND to EXECUTE of the second instruction
+  First instruction passes the output, "r2", into WRITEBACK AND to EXECUTE of the second instruction
   Second instruction takes "r2", which is being written back at the same time, and proceedes to EXECUTE
 Cycle 4:
   Second instruction completes WRITEBACK
 
 
 
-{ PIPELINE DIAGRAM }
+[ PIPELINE DIAGRAM ]
 ( file: /s16-emulator/src/assembler/assembly/pipeline_testing.s16 )
 
 KEY: [F]etch, [D]ecode, [E]xecute, [W]riteback, Bubble = []
 
                 |Time ( Cycles )
-Instructions    +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
+Instructions    +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+   COMMENTS:
                 | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 |10 |11 |12 |13 |14 |15 |16 |17 |18 |19 |20 |21 |22 |23 |24 |25 |26 |27 |28 |29 |30 |31 |
 ----------------+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
 clr r15, r0     | F | D | E | W |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |
@@ -168,7 +167,7 @@ jir -2          |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   |   
 ( example )
 
 +-----------------------+
-| 1.0.0xf.r11.r12.r13.0 | -> cost=1, hint_flag=0, c=r11, b=r12, a=r13, stall=0
+| 1.0.0xf.r11.r12.r13.0 | -> cost=1, hint_flag=0, i_tag=0xf, c=r11, b=r12, a=r13, stall=0
 +-----------------------+
 
 
@@ -220,9 +219,15 @@ jir -2          |                       |                       |               
 
 CONCLUSIONS:
 
+> Even in a simple 4 stage pipeline running a non-worst-case scenario, 7 instructions can be in-flight at
+  any given time
+
 > Integers/immediates do not cause dependancies. so no need to store them in dep. matrix
 
 > Hints should always be the worst case, if required at all.
+
+> Some instructions do not writeback to GPRs, like jumps or modifying control registers, thus writeback
+  checks could improve instructions per cycle(IPC)
 
 > Instruction_tag(i_tag) should be generated with bits from the dependancy matrix to resolve tag issues:
     - tight loops will reuse the same i_tag as it's solely based on the program counter(pc)
@@ -256,117 +261,12 @@ FUTURE IMPROVEMENTS/GOALS:
 > Delve into if hints are needed if operands need to be decoded anyway(likely no, but physically it could
   be useful?)
 
-> Extra flags are equired for branches/jumps/call/returns.
+> Extra flags are equired for branches/jumps/call/returns or special instructions which require special
+  dependancies.
 
 > Jump prediction -- aka Branch Target Buffer(BTB) lookup
   - Jump immediate has no operands that cause dependancies
   - Is there still a need to issue it to the dependancy_matrix?
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-{ DEPENDANCY_MATRIX HARDWARE }
-
-
-                        | Age
-Look-ahead              +-----------------------+-----------------------+-----------------------+-----------------------+-----------------------+-----------------------+-----------------------+-----------------------+
-                        | 0                     | 1                     | 2                     | 3                     | 4                     | 5                     | 6                     | 7                     |
-+-----------------------+-----------------------+-----------------------+-----------------------+-----------------------+-----------------------+-----------------------+-----------------------+-----------------------+
-| 0                     |
-+-----------------------+
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
