@@ -2,6 +2,10 @@
 
 s16 is a simple ISA, 16-bits, and a project to learn how to make a low level CPU emulation. 
 
+\*\*Currently my focus is 100% on brainstorming/documenting s16's Out of Order/[scheduling](https://github.com/NaCl-5844/s16-emulator/blob/main/docs/brainstorms/dep_matrix_scheduling%5Bsingle_cycle_window%5D.txt) logic which will determine the direction of the project. [current test](https://github.com/NaCl-5844/s16-emulator/blob/main/docs/brainstorms/single_cycle_window(SCW)_testing.txt)\*\* 
+
+
+
 Main Goals:
   - Implement main arithmetic, branching and memory instructions
   - Implement simple instruction prefetching.
