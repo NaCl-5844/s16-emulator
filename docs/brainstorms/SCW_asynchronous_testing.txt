@@ -1,0 +1,60 @@
+
+[ Asynchronous Instructions ]
+
+
+
+
+
+PREFACE
+
+Single cycle window(SCW) must work with asynchronous instructions which rely on delayed acknowledgements.
+Here I will set out a rough outline of each type of asynchronous instructions:
+
+    > Load instructions [ldw, ldb, etc]
+        - Issue:
+            (parallel)
+            - Instruction reads registers for address, and send to read_buffer
+            - allow unary count to decrement once or set isu=1
+            - set isu=1, asy=1, stl=1, unary_count=0u0001*
+        - Execute:
+            (sequential)
+            1. read_buffer recieves address and return operand
+            2. poll cache for data
+            3. wait for data to reach cache or get cache hit
+            4. return data to read_buffer
+            5. send acknowledgement to dependancy matrix
+        - Writeback:
+            1. Dependancy matrix recieves acknowledgement
+                - set asy=0 and stl=0
+            2. When dependancies allow, send acknowledgement to read_buffer
+                - set unary_count=0u0000
+            3. read_buffer sends data and return operand to writeback
+
+    * tried to search for the unary prefix with no luck, so I made up "0u" for unary.
+      ( common prefixes: binary(0b), hex(0x) and octal(0o) )
+
+
+    > Jump instructions [jri, jrr, etc]
+        - Issue:
+        - Execute:
+        - Writeback:
+
+
+
+
+    > Jump And Link instructions [jlr, ret, etc]
+        - Issue:
+        - Execute:
+        - Writeback:
+
+
+
+
+
+
+
+    > Branch instructions [brz, bdz, etc]
+        - Issue:
+        - Execute:
+        - Writeback:
+
