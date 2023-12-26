@@ -10,33 +10,74 @@ PREFACE
 Single cycle window(SCW) must work with asynchronous instructions which rely on delayed acknowledgements.
 Here I will set out a rough outline of each type of asynchronous instructions:
 
+{ Key: isu [issue], stl [stall], asy[nchronous], spc [speculative], hpr [high priority], }
+
     > Load instructions [ldw, ldb, etc]
         - Issue:
             (parallel)
-            - Instruction reads registers for address, and send to read_buffer
-            - allow unary count to decrement once or set isu=1
-            - set isu=1, asy=1, stl=1, unary_count=0u0001*
+            - Read registers for address, and send to read_buffer
+            - Allow unary count to decrement once or set isu=1
+            - Set isu=1, asy=1, stl=1, unary_count=0u0001*
         - Execute:
             (sequential)
-            1. read_buffer recieves address and return operand
-            2. poll cache for data
-            3. wait for data to reach cache or get cache hit
-            4. return data to read_buffer
-            5. send acknowledgement to dependancy matrix
+            1. Read_buffer recieves address and return operand
+            2. Poll cache for data
+            3. Wait for data to reach cache or get cache hit
+            4. Return data to read_buffer
+            5. Send acknowledgement to dependancy matrix
         - Writeback:
             1. Dependancy matrix recieves acknowledgement
-                - set asy=0 and stl=0
+                - Set asy=0 and stl=0
             2. When dependancies allow, send acknowledgement to read_buffer
-                - set unary_count=0u0000
-            3. read_buffer sends data and return operand to writeback
+                - Set unary_count=0u0000
+            3. Read_buffer sends data and return operand to writeback
 
     * tried to search for the unary prefix with no luck, so I made up "0u" for unary.
-      ( common prefixes: binary(0b), hex(0x) and octal(0o) )
+      { common prefixes: binary(0b), hex(0x) and octal(0o) }
 
 
     > Jump instructions [jri, jrr, etc]
+
+        - Fetch:
+            - poll BTB for matching PC address
+
+            HIT; BTB holds valid address at polled PC address
+                - Set spc=1, asy=1
+                1. Wait for cache to HIT icache or load address to cache
+                2. Begin issuing speculative instructions
+
+            MISS; PC address isn't present in BTB or BTB entry is invalid
+                - Set high_priority=1
+                - Calculate/return correct branch target
+
+        BTB HIT
+
         - Issue:
+            - Set spc=1, asy=1
+            - Read register for, or load immediate, address/offset
         - Execute:
+            1. Calculate/read target address
+            2. Compare: IF target address == BTB's target address
+            3. Generate flags based on comparison returning TRUE or FALSE
+
+            TRUE: BTB prediction is correct
+                - send acknowledgement to dependancy matrix
+                - remove speculation flag for instructions ahead of current instruction
+                -
+
+            FALSE: BTB mispredict
+                -
+
+
+        - Writeback:
+
+
+        BTB MISS
+
+        - Issue:
+
+        - Execute:
+
         - Writeback:
 
 
@@ -57,4 +98,39 @@ Here I will set out a rough outline of each type of asynchronous instructions:
         - Issue:
         - Execute:
         - Writeback:
+
+
+
+
+
+
+
+NOTES:
+
+> Invalid instructions can send their unary_count and unit_id to flush the instruction
+  from the pipeline
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
