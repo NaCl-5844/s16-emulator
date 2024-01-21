@@ -19,8 +19,9 @@ will only:
   
   a) Remain the same
   b) Decrement
-  c) move through buffer*
-  d) Decrement and move through buffer*
+  c) move one buffer* position
+  d) Decrement and move one buffer* position
+  e) Override data with previous entry(delete)
   
   *Unary_count is buffered along with operands
 
@@ -42,7 +43,7 @@ be organised as a buffer.
 ### Example 
 
 
-Each shifter acting as a FIFO buffer:
+Shifters collectvely acting as a FIFO buffer:
 
         shifter -> shifter -> shifter
         [0010]     [1000]     [----]
@@ -63,8 +64,8 @@ or decrement and shift:
         
 ## FLAGS/CONDITIONS 
 
-This section focuses on the 4 requirements a, b, c, and d,
-how flags effect the actions of the buffer then the logic
+This section focuses on the 4 requirements a, b, c, d and e,
+how flags effect the actions of the buffer, and the logic
 required to do a given action.
 
 
@@ -73,23 +74,76 @@ required to do a given action.
 
 a) remain the same
 
-  - independant write control of each counter
-  - restrict the write when a flag is raised
+    Flags/Conditions
+        
+        - Not issued, isu [ issued ] == 0
 
-b, c, d)
+ 
+    Hardware
+    
+        -> Independant write control of each counter
+          -> Each counter is connected to a clock line
+            -> Restrict write control wire from being 
+               clocked when above flags raised
 
-  - AND gates and control lines which correlate with
+b) Decrement
+
+    Flags/Conditions
+        
+        - Issued, isu [ issued ] == 1
+
   
+    Hardware
+    
+
+c) Move one buffer position
+
+    Flags/Conditions
+        
+        - 
+        - 
+
+  
+  
+  
+    Hardware
+    
+
+d) Decrement and move one buffer position
+
+    Flags/Conditions
+        
+        - Not issued, isu [ issued ] == 0
+        - 
+
+  
+  
+  
+    Hardware
+    
+    
+
+e) Override data with previous entry(delete)
+
+    Flags/Conditions
+        
+        - Not issued, isu [ issued ] == 0
+        - 
+
+  
+  
+  
+    Hardware
 
 
 
 
 
-
-
-
-
-
+e)
+    Flags/Conditions
+    
+        - IF "unary_count of the counter ahead" == 0:
+        - inv[alid]
 
 
 
