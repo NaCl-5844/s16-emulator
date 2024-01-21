@@ -1,0 +1,167 @@
+
+# PREFACE
+
+The unary counter serves two purposes:
+
+  - As a countdown to when an instruction is complete.
+  - Easily compare many couters for matching values.
+
+Unary when only considering the most significant bit is 
+perfect for this. Unlike binary where comparing more than
+two values becomes rather complex, comparing unary values
+only need to compare a single bit.
+
+
+## UNARY COUNTER REQUIREMENTS
+
+As each counter in tracks the time until completion, values
+will only:
+  
+  a) Remain the same
+  b) Decrement
+  c) move through buffer*
+  d) Decrement and move through buffer*
+  
+  *Unary_count is buffered along with operands
+
+These simple requirements can be fufilled with a buffer with
+multiple gates which allow options a, b, c and d.
+
+
+
+# HARDWARE
+
+
+## DECREMENTING BUFFER
+
+One way to make the unary counter is to make down-shifters,
+in unary this is the same as decrementing, which can then
+be organised as a buffer.
+
+
+### Example 
+
+
+Each shifter acting as a FIFO buffer:
+
+        shifter -> shifter -> shifter
+        [0010]     [1000]     [----]
+
+        shifter -> shifter -> shifter
+        [0100]  -> [0010]     [1000]
+        
+each shifter can also decrement in-place:
+
+        shifter -> shifter -> shifter
+        [0010]  -> [0001]     [0100]
+
+or decrement and shift:
+
+        shifter -> shifter -> shifter
+        [----]  -> [0001]     [0000]
+
+        
+## FLAGS/CONDITIONS 
+
+This section focuses on the 4 requirements a, b, c, and d,
+how flags effect the actions of the buffer then the logic
+required to do a given action.
+
+
+
+   
+
+a) remain the same
+
+  - independant write control of each counter
+  - restrict the write when a flag is raised
+
+b, c, d)
+
+  - AND gates and control lines which correlate with
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
