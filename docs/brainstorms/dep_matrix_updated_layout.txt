@@ -19,21 +19,21 @@
        |     |     |     |     |     |     | +===+===+
        +---+---+---+---+---+---+-----|-----+     |
        |     |     |     |     | +===+===+       |
-       |           |           | |       |       |
+       |           |           | |C     A|       |
     y2-|- - -|- - -|- - -|- - -|-+       +<------*
-       |           |           | |       |
+       |           |           | |B      |
        |     |     |     |     | +===+===+
        +---+---+---+-----|-----+     |
        |     |     | +===+===+       |
-       |           | |       |       |
+       |           | |C     A|       |
     y3-|- - -|- - -|-+       +<------*
-       |           | |       |
+       |           | |B      |
        |     |     | +===+===+
        +-----|-----+     |
          +===+===+       |
-         |       |       |
+         |C     A|       |
     y4- -+       +<------*
-         |       |
+         |B      |
          +===+===+
 
 
@@ -54,10 +54,13 @@
  Discoveries made while updating the design:
 
  - How simple and small the "unary_count" units are
- - As only WAW and RAW dependencies are checked, the hardware can be organised to only do 4 calculations per "cell"
- - Basic idea of how flags, count, dependencies, etc effect the operand buffers
+ - As only WAW and RAW dependencies are checked, the hardware can be organised to only do 4 calculations
+   per "cell"
+ - Basic idea of how flags, count, dependencies, etc, effect the operand buffers
 
- A lot more research must be done to understand the true "data loop(s)" of the dependency matrix, aka the source and sink of all flags generated ans the output of the dep. matrix. After creating the first set of diagrams, I had assumed the loop would be:
+ A lot more research must be done to understand the true "data loop(s)" of the dependency matrix, aka the
+ source and sink of all flags generated ans the output of the dep. matrix. After creating the first set
+ of diagrams, I had assumed the loop would be:
 
      route_a: operand_queue ->  dependency_matrix -> operand_queue
 
@@ -74,7 +77,10 @@
 
                       flags -> single_cycle_window -> unary_count
 
- Hope this makes sense.
+
+
+
+
 
 
 
