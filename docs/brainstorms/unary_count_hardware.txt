@@ -6,10 +6,9 @@ The unary counter serves two purposes:
   - As a countdown to when an instruction is complete.
   - Easily compare many couters for matching values.
 
-Unary when only considering the most significant bit is 
-perfect for this. Unlike binary where comparing more than
-two values becomes rather complex, comparing unary values
-only need to compare a single bit.
+Unary when only considering the most significant bit is perfect for this. Unlike binary where
+comparing more than two values becomes rather complex, comparing unary values only need to
+compare a single bit.
 
 
 ## UNARY COUNTER REQUIREMENTS
@@ -25,19 +24,16 @@ will only:
   
   *Unary_count is buffered along with operands
 
-These simple requirements can be fufilled with a buffer with
-multiple gates which allow options a, b, c and d.
+These simple requirements can be fufilled with a buffer with multiple gates which allow options
+a, b, c and d.
 
 
-
-# HARDWARE
 
 
 ## DECREMENTING BUFFER
 
-One way to make the unary counter is to make down-shifters,
-in unary this is the same as decrementing, which can then
-be organised as a buffer.
+One way to make the unary counter is to make down-shifters, in unary this is the same as
+decrementing, which can then be organised as a buffer.
 
 
 ### Example 
@@ -45,32 +41,30 @@ be organised as a buffer.
 
 Shifters collectvely acting as a FIFO buffer:
 
-        shifter -> shifter -> shifter
-        [0010]     [1000]     [----]
+    t+0|    shifter -> shifter -> shifter
+            [0010]     [1000]     [----]
 
-        shifter -> shifter -> shifter
-        [0100]  -> [0010]     [1000]
+    t+1|    shifter -> shifter -> shifter
+            [0100]     [0010]     [1000]
         
 each shifter can also decrement in-place:
 
-        shifter -> shifter -> shifter
-        [0010]  -> [0001]     [0100]
+    t+2|    shifter -> shifter -> shifter
+            [0010]     [0001]     [0100]
 
 or decrement and shift:
 
-        shifter -> shifter -> shifter
-        [----]  -> [0001]     [0000]
+    t+3|    shifter -> shifter -> shifter
+            [----]     [0001]     [0000]
 
-        
+
+
+
 ## FLAGS/CONDITIONS 
 
-This section focuses on the 4 requirements a, b, c, d and e,
-how flags effect the actions of the buffer, and the logic
-required to do a given action.
+This section focuses on the 4 requirements a, b, c, d and e, how flags effect the actions of the
+buffer, and the logic required to do a given action.
 
-
-
-   
 
 a) remain the same
 
@@ -78,72 +72,80 @@ a) remain the same
         
         - Not issued, isu [ issued ] == 0
 
- 
     Hardware
     
-        -> Independant write control of each counter
+        -> Independant write/update control of each counter
           -> Each counter is connected to a clock line
-            -> Restrict write control wire from being 
-               clocked when above flags raised
+            -> Restrict write control wire from being clocked when above flags raised
+
+
 
 b) Decrement
 
     Flags/Conditions
         
-        - Issued, isu [ issued ] == 1
+        - Issued; isu [ issued ] == 1
 
-  
     Hardware
-    
+
+        -> Enable decrement control line when above flag raised
+          -> Restrict write control wire from being clocked when above flags raised
+
 
 c) Move one buffer position
 
     Flags/Conditions
         
-        - 
-        - 
-
-  
-  
+        - New instruction enters dependency matrix
+        - When the following counter reaches zero; next_unary_count == 0
   
     Hardware
-    
+
+        -> Independant write/update control of each counter
+          -> ifz [IF 0] flag propagates to all counters ahead and including the original
+            -> Each counter's clock line is connected to ifz_propagation line(s)
+              -> Restrict write control wire(s) from being clocked based on ifz_propagation
+
+
 
 d) Decrement and move one buffer position
 
     Flags/Conditions
         
-        - Not issued, isu [ issued ] == 0
-        - 
+        - Issued, isu [ issued ] == 1
 
-  
-  
+        AND
+
+        - New instruction enters dependency matrix
+        - When the following counter reaches zero; next_unary_count == 0
   
     Hardware
-    
-    
+        -> Independant write/update control of each counter
+          -> Check isu == 1 AND ifz_propagation line
+            -> Restrict write control wire(s) from being clocked based on ifz_propagation
 
-e) Override data with previous entry(delete)
+
+
+e) Delete entry
 
     Flags/Conditions
         
-        - Not issued, isu [ issued ] == 0
-        - 
+        - When the current counter reaches zero; next_unary_count == 0
+        - inv[alid] == 1
 
-  
-  
-  
     Hardware
 
+        -> Independant write/update control of each counter
+          -> inv flag emulates ifz to reuse ifz_propagation
+            -> Restrict write control wire(s) from being clocked based on ifz_propagation
 
 
 
 
-e)
-    Flags/Conditions
-    
-        - IF "unary_count of the counter ahead" == 0:
-        - inv[alid]
+
+
+
+
 
 
 
