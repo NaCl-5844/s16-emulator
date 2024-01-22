@@ -11,7 +11,7 @@ comparing more than two values becomes rather complex, comparing unary values on
 compare a single bit.
 
 
-## UNARY COUNTER REQUIREMENTS
+# UNARY COUNTER REQUIREMENTS
 
 As each counter in tracks the time until completion, values
 will only:
@@ -25,7 +25,7 @@ will only:
   *Unary_count is buffered along with operands
 
 These simple requirements can be fufilled with a buffer with multiple gates which allow options
-a, b, c and d.
+a, b, c, d and e.
 
 
 
@@ -130,7 +130,7 @@ e) Delete entry
 
     Flags/Conditions
         
-        - When the current counter reaches zero; next_unary_count == 0
+        - When the current counter reaches zero; unary_count == 0
         - inv[alid] == 1
 
     Hardware
@@ -142,82 +142,10 @@ e) Delete entry
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+### Final Remarks
+
+Any hardware, flags or operation that effects the "decrementing buffer", will also synchronously
+effect the corresponding operand buffer.  With this in mind there should be little in the way of
+fully designing a functioning dependancy matrix.
 
 
