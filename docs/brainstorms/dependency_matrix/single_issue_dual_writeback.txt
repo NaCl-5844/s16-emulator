@@ -133,10 +133,10 @@ Reading this I felt like it may be confusing how an instuction can writeback to 
 while also requiring data from the GPRs. This is enabled through "pointers", data which can be
 used as an address:
 
-    GPR source -> points to a location
+    GPR source -> points to a location/address
 
 
-While the instruction itself will decide on which unit which will be used:
+While the instruction itself will decide on which unit the pointer is sent to:
 
     pointer -> Memory Address?
             -> Program Address?
